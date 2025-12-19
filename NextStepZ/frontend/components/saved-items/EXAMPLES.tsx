@@ -57,7 +57,7 @@ export function SavePostExample() {
       id: '1',
       name: 'John Doe',
       avatar: 'https://...',
-      role: 'recruiter',
+      role: 'employer',
     },
     category: 'experience',
     // ... other post properties

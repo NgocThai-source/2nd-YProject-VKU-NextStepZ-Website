@@ -1,9 +1,12 @@
 'use client';
 
 import { Input } from '@/components/ui/input';
-import { Facebook, Mail, Eye, EyeOff } from 'lucide-react';
-import { useState } from 'react';
+import { Facebook, Mail, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '@/lib/auth-context';
+import { API_URL } from '@/lib/api';
 import {
   Select,
   SelectContent,
@@ -13,7 +16,7 @@ import {
 } from "@/components/ui/select";
 
 interface RegisterFormProps {
-  onToggleForm: () => void;
+  onToggleForm: (form: 'login' | 'register' | 'forgot') => void;
 }
 
 // Danh sách các tỉnh thành Việt Nam
@@ -314,10 +317,72 @@ const universitiesByProvince: { [key: string]: string[] | null } = {
 export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   const [role, setRole] = useState<'student' | 'employer' | null>(null);
   const [age, setAge] = useState<number | null>(null);
-  const [selectedProvince, setSelectedProvince] = useState<string>('');
-  const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const router = useRouter();
+  const { login } = useAuth();
+  
+  // Common fields
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  // Student fields
+  const [fullName, setFullName] = useState('');
+  const [birthDate, setBirthDate] = useState('');
+  const [selectedProvince, setSelectedProvince] = useState<string>('');
+  const [selectedSchool, setSelectedSchool] = useState<string>('');
+  const [major, setMajor] = useState('');
+  
+  // Employer fields
+  const [companyName, setCompanyName] = useState('');
+  const [website, setWebsite] = useState('');
+  const [address, setAddress] = useState('');
+  const [taxId, setTaxId] = useState('');
+
+  // Real-time validation using useMemo
+  const fieldErrors = useMemo(() => {
+    const errors: { [key: string]: string } = {};
+
+    // Email validation
+    if (email && !email.includes('@')) {
+      errors.email = 'Email không đúng định dạng';
+    }
+
+    // Phone validation
+    if (phone) {
+      const phoneDigitsOnly = phone.replace(/\D/g, '');
+      if (phoneDigitsOnly.length !== 10) {
+        errors.phone = `Số điện thoại không đúng định dạng`;
+      }
+    }
+
+    // Password validation
+    if (password && password.length < 6) {
+      errors.password = `Mật khẩu phải có ít nhất 6 ký tự (hiện có ${password.length})`;
+    }
+
+    // Confirm password validation
+    if (confirmPassword && password && password !== confirmPassword) {
+      errors.confirmPassword = 'Mật khẩu không khớp';
+    }
+
+    // Age validation
+    if (age !== null) {
+      if (age < 18) {
+        errors.age = 'Số tuổi phải từ 18 tuổi trở lên';
+      } else if (age > 100) {
+        errors.age = 'Số tuổi vô lý, vui lòng kiểm tra lại năm sinh';
+      }
+    }
+
+    return errors;
+  }, [email, phone, password, confirmPassword, age]);
+
 
   const calculateAge = (birthDate: string) => {
     const today = new Date();
@@ -330,6 +395,134 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
     }
     
     setAge(age);
+    setBirthDate(birthDate);
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError('');
+    setSuccess('');
+
+    // Common validation
+    if (!email || !phone || !password || !confirmPassword) {
+      setError('Vui lòng điền tất cả các trường bắt buộc');
+      setIsLoading(false);
+      return;
+    }
+
+    // Email validation - must contain @
+    if (!email.includes('@')) {
+      setError('Email phải đúng định dạng');
+      setIsLoading(false);
+      return;
+    }
+
+    // Phone validation - must be exactly 10 digits
+    const phoneDigitsOnly = phone.replace(/\D/g, '');
+    if (phoneDigitsOnly.length !== 10) {
+      setError('Số điện thoại phải đúng định dạng');
+      setIsLoading(false);
+      return;
+    }
+
+    // Password validation
+    if (password !== confirmPassword) {
+      setError('Mật khẩu không khớp');
+      setIsLoading(false);
+      return;
+    }
+
+    if (password.length < 6) {
+      setError('Mật khẩu phải có ít nhất 6 ký tự');
+      setIsLoading(false);
+      return;
+    }
+
+    // Role-specific validation
+    if (role === 'student') {
+      if (!fullName || !birthDate || !selectedProvince) {
+        setError('Vui lòng điền đầy đủ thông tin sinh viên (trừ ngành học)');
+        setIsLoading(false);
+        return;
+      }
+
+      // Age validation - must be between 18 and 100
+      if (age === null || age < 18 || age > 100) {
+        setError('Tuổi phải từ 18 đến 100 tuổi');
+        setIsLoading(false);
+        return;
+      }
+
+      // School validation - only required if there are universities in the province
+      if (universitiesByProvince[selectedProvince] && !selectedSchool) {
+        setError('Vui lòng chọn trường đại học');
+        setIsLoading(false);
+        return;
+      }
+    }
+
+    if (role === 'employer' && (!companyName || !address)) {
+      setError('Vui lòng điền đầy đủ thông tin công ty (bắt buộc: tên công ty, địa chỉ)');
+      setIsLoading(false);
+      return;
+    }
+
+    try {
+      // Prepare registration data
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const registerData: Record<string, any> = {
+        email,
+        phone: phoneDigitsOnly,
+        password,
+        role: role === 'student' ? 'user' : 'employer',
+      };
+
+      if (role === 'student') {
+        const nameParts = fullName.trim().split(' ');
+        registerData.firstName = nameParts[0] || '';
+        registerData.lastName = nameParts.slice(1).join(' ') || '';
+        registerData.birthDate = birthDate;
+        registerData.province = selectedProvince;
+        registerData.school = selectedSchool || null;
+        registerData.major = major || null;
+      } else {
+        const companyNameParts = companyName.trim().split(' ');
+        registerData.firstName = companyNameParts[0] || '';
+        registerData.lastName = companyNameParts.slice(1).join(' ') || '';
+        registerData.companyName = companyName;
+        registerData.website = website || null;
+        registerData.address = address;
+        registerData.taxId = taxId || null;
+      }
+
+      // Call register API
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(registerData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        setError(errorData.message || 'Đăng ký thất bại');
+        setIsLoading(false);
+        return;
+      }
+
+      setSuccess('Đăng ký thành công! Vui lòng đăng nhập...');
+      
+      // Redirect to login after 1.5 seconds
+      setTimeout(() => {
+        onToggleForm('login');
+      }, 1500);
+    } catch (err) {
+      setError('Có lỗi xảy ra. Vui lòng thử lại.');
+      console.error('Register error:', err);
+      setIsLoading(false);
+    }
   };
 
   const containerVariants = {
@@ -407,6 +600,30 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
         </div>
       </motion.div>
 
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-400 text-sm"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+        >
+          {error}
+        </motion.div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <motion.div
+          className="p-3 rounded-xl bg-green-500/10 border border-green-500/30 text-green-400 text-sm"
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+        >
+          {success}
+        </motion.div>
+      )}
+
       {/* Conditional Fields based on Role */}
       <motion.div className="space-y-4" variants={itemVariants}>
         {role === 'student' && (
@@ -427,7 +644,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="text"
                 placeholder="Nguyễn Văn A"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
             </div>
@@ -438,7 +658,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
-                Ngày sinh
+                Ngày sinh (Tháng / Ngày / Năm)
               </label>
               <Input
                 type="date"
@@ -460,9 +680,24 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 >
                   Tuổi
                 </label>
-                <div className="px-4 py-3 bg-cyan-500/10 border border-cyan-400/40 rounded-xl text-cyan-300 font-semibold">
+                <div className={`px-4 py-3 border rounded-xl font-semibold transition-all ${
+                  fieldErrors.age
+                    ? 'bg-red-500/10 border-red-500/40 text-red-300'
+                    : 'bg-cyan-500/10 border-cyan-400/40 text-cyan-300'
+                }`}>
                   {age} tuổi
                 </div>
+                {fieldErrors.age && (
+                  <motion.div
+                    className="flex items-center gap-2 text-sm text-red-400"
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                  >
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    {fieldErrors.age}
+                  </motion.div>
+                )}
               </motion.div>
             )}
 
@@ -477,9 +712,27 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="email"
                 placeholder="example@email.com"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
+                  fieldErrors.email
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-cyan-400/30 focus:border-cyan-400'
+                }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
+              {fieldErrors.email && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.email}
+                </motion.div>
+              )}
             </div>
 
             {/* Phone */}
@@ -493,9 +746,27 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="tel"
                 placeholder="0xxx xxx xxx"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={isLoading}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
+                  fieldErrors.phone
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-cyan-400/30 focus:border-cyan-400'
+                }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
+              {fieldErrors.phone && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.phone}
+                </motion.div>
+              )}
             </div>
 
             {/* Province Select */}
@@ -513,12 +784,35 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 <SelectTrigger className="w-full px-4 py-3 bg-cyan-400/20 border border-cyan-400 rounded-xl text-white placeholder:text-gray-300 transition-all duration-300 focus:border-cyan-300 focus:bg-cyan-400/30 focus:shadow-lg focus:shadow-cyan-500/30 hover:bg-cyan-400/25">
                   <SelectValue placeholder="Chọn tỉnh/thành phố" />
                 </SelectTrigger>
-                <SelectContent className="bg-slate-900 border border-cyan-400 text-white">
-                  {provinces.map((province) => (
-                    <SelectItem key={province} value={province} className="hover:bg-cyan-500/20 focus:bg-cyan-500/30 bg-slate-900 text-white focus:text-cyan-100 hover:text-cyan-100">
-                      {province}
-                    </SelectItem>
-                  ))}
+                <SelectContent className="bg-slate-900 border border-cyan-400 text-white max-h-[280px] overflow-y-auto"
+                  style={{
+                    scrollbarWidth: 'thin',
+                    scrollbarColor: 'rgba(34, 211, 238, 0.5) rgba(15, 23, 42, 0.3)',
+                  }}
+                >
+                  <style>{`
+                    .scroll-custom::-webkit-scrollbar {
+                      width: 6px;
+                    }
+                    .scroll-custom::-webkit-scrollbar-track {
+                      background: rgba(15, 23, 42, 0.3);
+                      border-radius: 10px;
+                    }
+                    .scroll-custom::-webkit-scrollbar-thumb {
+                      background: rgba(34, 211, 238, 0.5);
+                      border-radius: 10px;
+                    }
+                    .scroll-custom::-webkit-scrollbar-thumb:hover {
+                      background: rgba(34, 211, 238, 0.8);
+                    }
+                  `}</style>
+                  <div className="scroll-custom">
+                    {provinces.map((province) => (
+                      <SelectItem key={province} value={province} className="hover:bg-cyan-500/20 focus:bg-cyan-500/30 bg-slate-900 text-white focus:text-cyan-100 hover:text-cyan-100">
+                        {province}
+                      </SelectItem>
+                    ))}
+                  </div>
                 </SelectContent>
               </Select>
             </div>
@@ -541,12 +835,35 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                     <SelectTrigger className="w-full px-4 py-3 bg-cyan-400/20 border border-cyan-400 rounded-xl text-white placeholder:text-gray-300 transition-all duration-300 focus:border-cyan-300 focus:bg-cyan-400/30 focus:shadow-lg focus:shadow-cyan-500/30 hover:bg-cyan-400/25">
                       <SelectValue placeholder="Chọn trường" />
                     </SelectTrigger>
-                    <SelectContent className="bg-slate-900 border border-cyan-400 text-white max-h-[300px]">
-                      {universitiesByProvince[selectedProvince]?.map((university) => (
-                        <SelectItem key={university} value={university} className="hover:bg-cyan-500/20 focus:bg-cyan-500/30 bg-slate-900 text-white focus:text-cyan-100 hover:text-cyan-100">
-                          {university}
-                        </SelectItem>
-                      ))}
+                    <SelectContent className="bg-slate-900 border border-cyan-400 text-white max-h-[280px] overflow-y-auto"
+                      style={{
+                        scrollbarWidth: 'thin',
+                        scrollbarColor: 'rgba(34, 211, 238, 0.5) rgba(15, 23, 42, 0.3)',
+                      }}
+                    >
+                      <style>{`
+                        .scroll-custom::-webkit-scrollbar {
+                          width: 6px;
+                        }
+                        .scroll-custom::-webkit-scrollbar-track {
+                          background: rgba(15, 23, 42, 0.3);
+                          border-radius: 10px;
+                        }
+                        .scroll-custom::-webkit-scrollbar-thumb {
+                          background: rgba(34, 211, 238, 0.5);
+                          border-radius: 10px;
+                        }
+                        .scroll-custom::-webkit-scrollbar-thumb:hover {
+                          background: rgba(34, 211, 238, 0.8);
+                        }
+                      `}</style>
+                      <div className="scroll-custom">
+                        {universitiesByProvince[selectedProvince]?.map((university) => (
+                          <SelectItem key={university} value={university} className="hover:bg-cyan-500/20 focus:bg-cyan-500/30 bg-slate-900 text-white focus:text-cyan-100 hover:text-cyan-100">
+                            {university}
+                          </SelectItem>
+                        ))}
+                      </div>
                     </SelectContent>
                   </Select>
                 ) : (
@@ -568,7 +885,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="text"
                 placeholder="VD: Công nghệ thông tin"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={major}
+                onChange={(e) => setMajor(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
             </div>
@@ -593,7 +913,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="text"
                 placeholder="Tên công ty"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={companyName}
+                onChange={(e) => setCompanyName(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
             </div>
@@ -609,9 +932,27 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="email"
                 placeholder="info@company.com"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={isLoading}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
+                  fieldErrors.email
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-cyan-400/30 focus:border-cyan-400'
+                }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
+              {fieldErrors.email && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.email}
+                </motion.div>
+              )}
             </div>
 
             {/* Phone */}
@@ -625,9 +966,27 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="tel"
                 placeholder="0xxx xxx xxx"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                disabled={isLoading}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
+                  fieldErrors.phone
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-cyan-400/30 focus:border-cyan-400'
+                }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
+              {fieldErrors.phone && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.phone}
+                </motion.div>
+              )}
             </div>
 
             {/* Website */}
@@ -641,7 +1000,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="url"
                 placeholder="https://example.com"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
             </div>
@@ -657,23 +1019,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="text"
                 placeholder="Địa chỉ công ty"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
-                style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-              />
-            </div>
-
-            {/* Position */}
-            <div className="space-y-2">
-              <label 
-                className="text-sm font-semibold text-gray-300"
-                style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-              >
-                Chức vụ
-              </label>
-              <Input
-                type="text"
-                placeholder="VD: HR Manager"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
             </div>
@@ -689,7 +1038,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               <Input
                 type="text"
                 placeholder="Mã số thuế / Giấy phép kinh doanh"
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                value={taxId}
+                onChange={(e) => setTaxId(e.target.value)}
+                disabled={isLoading}
+                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
             </div>
@@ -716,7 +1068,14 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
+                    fieldErrors.password
+                      ? 'border-red-500/50 focus:border-red-500'
+                      : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                   style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                 />
                 <motion.button
@@ -736,6 +1095,17 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                   )}
                 </motion.button>
               </div>
+              {fieldErrors.password && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.password}
+                </motion.div>
+              )}
             </div>
 
             {/* Confirm Password */}
@@ -750,7 +1120,14 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 <Input
                   type={showConfirmPassword ? 'text' : 'password'}
                   placeholder="••••••••"
-                  className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  disabled={isLoading}
+                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
+                    fieldErrors.confirmPassword
+                      ? 'border-red-500/50 focus:border-red-500'
+                      : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                   style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                 />
                 <motion.button
@@ -770,6 +1147,17 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                   )}
                 </motion.button>
               </div>
+              {fieldErrors.confirmPassword && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.confirmPassword}
+                </motion.div>
+              )}
             </div>
           </motion.div>
         )}
@@ -783,10 +1171,12 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           transition={{ duration: 0.4, delay: 0.3 }}
         >
           <motion.button
-            className="w-full px-4 py-3 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold transition-all duration-300 relative overflow-hidden group"
+            onClick={handleRegister}
+            disabled={isLoading}
+            className="w-full px-4 py-3 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white font-bold transition-all duration-300 relative overflow-hidden group disabled:opacity-50 disabled:cursor-not-allowed"
             style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}
-            whileHover={{ scale: 1.02, y: -2 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: isLoading ? 1 : 1.02, y: isLoading ? 0 : -2 }}
+            whileTap={{ scale: isLoading ? 1 : 0.98 }}
           >
             {/* Shine effect */}
             <motion.div
@@ -794,7 +1184,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
               animate={{ x: ['-100%', '100%'] }}
               transition={{ duration: 3, repeat: Infinity }}
             />
-            <span className="relative">Tạo Tài Khoản</span>
+            <span className="relative">{isLoading ? 'Đang tạo tài khoản...' : 'Tạo Tài Khoản'}</span>
           </motion.button>
         </motion.div>
       )}
@@ -865,7 +1255,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
         <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
           Bạn đã có tài khoản?{' '}
           <motion.button
-            onClick={onToggleForm}
+            onClick={() => onToggleForm('login')}
             className="text-cyan-300 font-bold hover:text-cyan-200 transition-colors"
             style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}
             whileHover={{ scale: 1.05 }}

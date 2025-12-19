@@ -293,7 +293,7 @@ export default function CompaniesPage() {
             {/* Main Content - Companies Grid/List */}
             <div className="flex-1 min-w-0">
               {/* Header với nút tạo bài tuyển dụng */}
-              {user?.role === 'recruiter' && (
+              {user?.role === 'employer' && (
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}

@@ -23,7 +23,7 @@ export interface Company {
   rating: number;
   totalReviews: number;
   views: number;
-  followersCount: number;
+  followersCount?: number;
   isFollowing?: boolean;
   tags?: string[];
 

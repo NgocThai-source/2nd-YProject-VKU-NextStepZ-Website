@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, LogOut, User, Briefcase, Bookmark, Clock, Settings } from 'lucide-react';
@@ -108,6 +109,17 @@ export function MobileMenu({
     onClose();
   }, [logout, onClose]);
 
+  const pathname = usePathname();
+
+  const isActive = (href: string) => {
+    // Exact match for home page
+    if (href === '/') {
+      return pathname === '/';
+    }
+    // For other pages, check if pathname starts with href
+    return pathname.startsWith(href);
+  };
+
   return (
     <>
       {/* Overlay backdrop */}
@@ -129,18 +141,26 @@ export function MobileMenu({
       >
         <div className="px-3 sm:px-4 py-3 sm:py-4 space-y-1 sm:space-y-2 min-h-auto">
           {/* Navigation Links */}
-          {MOBILE_NAV_ITEMS.map((item, idx) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`block px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base text-gray-300 hover:bg-white/5 hover:text-cyan-300 transition-colors duration-200 ${
-                idx === MOBILE_NAV_ITEMS.length - 1 ? 'border-b border-white/10 pb-3 sm:pb-4' : ''
-              }`}
-              onClick={handleNavClick}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {MOBILE_NAV_ITEMS.map((item, idx) => {
+            const active = isActive(item.href);
+            
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`block px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base transition-colors duration-200 ${
+                  active
+                    ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-400/30 font-medium'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-cyan-300'
+                } ${
+                  idx === MOBILE_NAV_ITEMS.length - 1 ? 'border-b border-white/10 pb-3 sm:pb-4' : ''
+                }`}
+                onClick={handleNavClick}
+              >
+                {item.label}
+              </Link>
+            );
+          })}
 
           {/* Language Section */}
           <div className="px-3 sm:px-4 py-2 sm:py-3 border-t border-white/10 pt-3 sm:pt-4 space-y-1 sm:space-y-2">

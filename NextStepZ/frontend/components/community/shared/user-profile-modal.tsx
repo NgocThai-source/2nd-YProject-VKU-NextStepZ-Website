@@ -48,7 +48,7 @@ export function UserProfileModal({
 
   const userRoleIcons: Record<string, string> = {
     student: '📚',
-    recruiter: '🤝',
+    employer: '🤝',
     mentor: '🎓',
     alumni: '⭐',
   };
@@ -131,7 +131,7 @@ export function UserProfileModal({
                   {user.name}
                 </h2>
                 <p className="text-sm text-gray-400 flex items-center justify-center gap-1 mb-2">
-                  {userRoleIcons[user.role]} {user.role === 'student' ? 'Sinh viên' : user.role === 'recruiter' ? 'Nhà tuyển dụng' : user.role === 'mentor' ? 'Mentor' : 'Cựu sinh viên'}
+                  {userRoleIcons[user.role]} {user.role === 'student' ? 'Sinh viên' : user.role === 'employer' ? 'Nhà tuyển dụng' : user.role === 'mentor' ? 'Mentor' : 'Cựu sinh viên'}
                 </p>
                 {user.title && (
                   <p className="text-sm text-cyan-300 font-semibold" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>

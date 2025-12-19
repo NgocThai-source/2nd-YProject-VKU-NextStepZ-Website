@@ -6,9 +6,10 @@ import Image from 'next/image';
 import { Compass, Briefcase, Users } from 'lucide-react';
 import { LoginForm } from '@/components/auth/login-form';
 import { RegisterForm } from '@/components/auth/register-form';
+import { ForgotPasswordForm } from '@/components/auth/forgot-password-form';
 
 export default function AuthPage() {
-  const [isLogin, setIsLogin] = useState(true);
+  const [activeForm, setActiveForm] = useState<'login' | 'register' | 'forgot'>('login');
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4 relative overflow-hidden">
@@ -216,10 +217,10 @@ export default function AuthPage() {
             <div className="relative p-4 sm:p-6 md:p-10">
               <AnimatePresence mode="wait">
                 <motion.div
-                  key={isLogin ? 'login' : 'register'}
-                  initial={{ opacity: 0, x: isLogin ? -30 : 30 }}
+                  key={activeForm}
+                  initial={{ opacity: 0, x: activeForm === 'login' ? -30 : 30 }}
                   animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: isLogin ? 30 : -30 }}
+                  exit={{ opacity: 0, x: activeForm === 'login' ? 30 : -30 }}
                   transition={{
                     type: 'spring',
                     stiffness: 300,
@@ -227,10 +228,14 @@ export default function AuthPage() {
                     duration: 0.5
                   }}
                 >
-                  {isLogin ? (
-                    <LoginForm onToggleForm={() => setIsLogin(false)} />
-                  ) : (
-                    <RegisterForm onToggleForm={() => setIsLogin(true)} />
+                  {activeForm === 'login' && (
+                    <LoginForm onToggleForm={(form) => setActiveForm(form)} />
+                  )}
+                  {activeForm === 'register' && (
+                    <RegisterForm onToggleForm={(form) => setActiveForm(form)} />
+                  )}
+                  {activeForm === 'forgot' && (
+                    <ForgotPasswordForm onToggleForm={(form) => setActiveForm(form)} />
                   )}
                 </motion.div>
               </AnimatePresence>

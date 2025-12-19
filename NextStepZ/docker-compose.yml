@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: nextstepz_postgres
+    environment:
+      POSTGRES_USER: ${DB_USER:-nextstepz}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-nextstepz123}
+      POSTGRES_DB: ${DB_NAME:-nextstepz_db}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-nextstepz}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - nextstepz-network
+
+networks:
+  nextstepz-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+    driver: local

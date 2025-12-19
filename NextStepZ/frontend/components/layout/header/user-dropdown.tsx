@@ -121,15 +121,23 @@ export function UserDropdown({ scrolled }: UserDropdownProps) {
           >
             {/* User Info Header */}
             <div className="px-4 py-4 border-b border-white/10 bg-linear-to-r from-slate-900 to-slate-800/50">
-              <div className="w-12 h-12 rounded-lg bg-linear-to-br from-cyan-400 to-blue-500 flex items-center justify-center text-white font-bold text-lg mb-3">
-                {user?.username.charAt(0).toUpperCase() || 'A'}
-              </div>
-              <h3 className="text-sm font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+              <h3 className="text-base font-bold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
                 {user?.name || user?.username || 'Demo User'}
               </h3>
-              <p className="text-xs text-gray-400 mt-1" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+              <p className="text-sm text-gray-400 mt-1" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
                 {user?.email || 'demo@nextstepz.com'}
               </p>
+              <p className="text-sm text-gray-400 mt-1" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                {(user as unknown as Record<string, string>)?.phone || '+84 123 456 789'}
+              </p>
+              <div className="mt-3 pt-3 border-t border-white/10">
+                <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                  Loại tài khoản
+                </p>
+                <p className={`text-sm font-medium ${user?.role === 'employer' ? 'text-amber-300' : 'text-cyan-300'}`} style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                  {user?.role === 'employer' ? 'Nhà tuyển dụng' : 'Sinh viên'}
+                </p>
+              </div>
             </div>
 
             {/* Menu Items */}

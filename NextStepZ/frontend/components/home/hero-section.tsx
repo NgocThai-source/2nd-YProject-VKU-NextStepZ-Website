@@ -206,19 +206,7 @@ Nơi bạn tìm thấy cơ hội, rèn luyện kỹ năng và kiến tạo tươ
               </motion.button>
             </motion.div>
 
-            {/* Stats */}
-            <motion.div className="grid grid-cols-3 gap-4 pt-8" variants={itemVariants}>
-              {[
-                { label: 'Sinh viên', value: 10 },
-                { label: 'Nhà tuyển dụng', value: 500 },
-                { label: 'Cơ hội', value: 1 },
-              ].map((stat, idx) => (
-                <div key={idx} className="text-center">
-                  <CountUpNumber value={stat.value} duration={2.5} />
-                  <div className="text-sm text-gray-400">{stat.label}</div>
-                </div>
-              ))}
-            </motion.div>
+            
           </motion.div>
 
           {/* Right Visual */}

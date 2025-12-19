@@ -28,7 +28,7 @@ export function UserCard({
 
   const roleLabels = {
     student: '📚 Sinh viên',
-    recruiter: '🤝 Nhà tuyển dụng',
+    employer: '🤝 Nhà tuyển dụng',
     mentor: '🎓 Mentor',
     alumni: '⭐ Cựu sinh viên',
   };

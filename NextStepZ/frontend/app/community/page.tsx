@@ -7,8 +7,6 @@ import {
   Plus,
   HelpCircle,
   Search,
-  TrendingUp,
-  Briefcase,
 } from 'lucide-react';
 import { useState } from 'react';
 import { Feed } from '@/components/community/feed';
@@ -18,7 +16,6 @@ import { UserProfileModal } from '@/components/community/shared';
 import { AdvancedSearch } from '@/components/community/shared';
 import { UserManagementDialog } from '@/components/community/shared';
 import { Recommendations } from '@/components/community/shared';
-import { CommunityGuidelines } from '@/components/community/shared';
 import { FeedFilter, type FilterType } from '@/components/community/feed';
 import { mockLeaderboard, mockQuestions, mockUsers, Post, Question } from '@/lib/community-mock-data';
 import { QuestionsPage } from '@/components/community/questions';

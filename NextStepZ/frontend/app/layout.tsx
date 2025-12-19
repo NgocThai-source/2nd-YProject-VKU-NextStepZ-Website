@@ -8,6 +8,7 @@ import { ProfileProvider } from "@/lib/profile-context";
 import { SavedPortfolioProvider } from "@/lib/saved-portfolio-context";
 import { SavedItemsProvider } from "@/lib/saved-items-context";
 import { MessagingProvider } from "@/lib/messaging-context";
+import { UserPostsProvider } from "@/lib/user-posts-context";
 import { ToastProvider } from "@/components/ui/toast";
 import { iCielCadena, iCielCroncante, iCielShowcase } from "./fonts";
 import "./globals.css";
@@ -46,14 +47,16 @@ export default function RootLayout({
             <MessagingProvider>
               <ProfileProvider>
                 <SavedPortfolioProvider>
-                  <ToastProvider>
-                    <Header />
-                    <HeaderSpacer />
-                    <main>
-                      {children}
-                    </main>
-                    <Footer />
-                  </ToastProvider>
+                  <UserPostsProvider>
+                    <ToastProvider>
+                      <Header />
+                      <HeaderSpacer />
+                      <main>
+                        {children}
+                      </main>
+                      <Footer />
+                    </ToastProvider>
+                  </UserPostsProvider>
                 </SavedPortfolioProvider>
               </ProfileProvider>
             </MessagingProvider>

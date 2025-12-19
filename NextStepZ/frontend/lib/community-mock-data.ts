@@ -1,7 +1,7 @@
 // Mock data for Community Page
 // Includes posts, users, topics, companies, mentors, Q&A questions, reviews, etc.
 
-export type UserRole = 'student' | 'recruiter' | 'mentor' | 'alumni';
+export type UserRole = 'student' | 'employer' | 'mentor' | 'alumni';
 export type PostCategory = 'job-search' | 'experience' | 'discussion' | 'question' | 'offer' | 'opportunity';
 export type CompanySize = 'startup' | 'small' | 'medium' | 'large' | 'enterprise';
 
@@ -163,7 +163,7 @@ export const mockUsers: CommunityUser[] = [
     id: '2',
     name: 'Trần Thị B',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
-    role: 'recruiter',
+    role: 'employer',
     title: 'HR Manager',
     company: 'Google Vietnam',
     followers: 892,
@@ -252,7 +252,7 @@ export const mockUsers: CommunityUser[] = [
     id: '9',
     name: 'Ngô Yến I',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Riley',
-    role: 'recruiter',
+    role: 'employer',
     title: 'Tech Recruiter',
     company: 'LinkedIn Vietnam',
     followers: 523,
@@ -315,7 +315,7 @@ export const mockUsers: CommunityUser[] = [
     id: '14',
     name: 'Phan Huy N',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Quinn',
-    role: 'recruiter',
+    role: 'employer',
     title: 'Tech Lead Recruiter',
     company: 'Talentify Vietnam',
     followers: 456,

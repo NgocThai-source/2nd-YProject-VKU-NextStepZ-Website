@@ -142,7 +142,7 @@ export default function PublicProfileTokenPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`${API_URL}/api/profiles/public/share/${token}`);
+        const response = await fetch(`${API_URL}/profiles/public/share/${token}`);
 
         if (!response.ok) {
           if (response.status === 404) {

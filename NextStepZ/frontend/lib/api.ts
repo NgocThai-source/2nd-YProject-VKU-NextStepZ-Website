@@ -1,4 +1,4 @@
-export const API_URL = "http://localhost:3001";
+export const API_URL = "http://localhost:3001/api";
 
 // Helper function để gọi API
 export async function fetchAPI(endpoint: string, options?: RequestInit) {

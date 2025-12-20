@@ -142,7 +142,7 @@ export default function PublicProfileTokenPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`${API_URL}/profiles/public/share/${token}`);
+        const response = await fetch(`${API_URL}/api/profiles/public/share/${token}`);
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -267,7 +267,7 @@ export default function PublicProfileTokenPage() {
       {/* Header */}
       <header className="sticky top-0 z-40 bg-slate-900/80 backdrop-blur-xl border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors">
+          <Link href="/profile" className="flex items-center gap-2 text-cyan-400 hover:text-cyan-300 transition-colors">
             <ArrowLeft className="w-5 h-5" />
             <span style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>Quay lại</span>
           </Link>

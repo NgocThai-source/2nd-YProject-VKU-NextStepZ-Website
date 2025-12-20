@@ -39,7 +39,7 @@ export class ProfileController {
     return this.profileService.updateProfile(user.userId, updateProfileDto);
   }
 
-  // Get or create public profile for current user
+  // Get or create public profile for current user - MUST BE BEFORE dynamic routes
   @Post('public')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -58,7 +58,7 @@ export class ProfileController {
     return this.profileService.togglePublicProfile(user.userId, body.isActive);
   }
 
-  // Get public profile by share token (public endpoint) - MUST BE BEFORE :profileId route
+  // Get public profile by share token (public endpoint)
   @Get('public/share/:shareToken')
   @HttpCode(HttpStatus.OK)
   async getPublicProfileByToken(@Param('shareToken') shareToken: string) {
@@ -72,7 +72,7 @@ export class ProfileController {
     return this.profileService.getPublicProfileByUserId(userId);
   }
 
-  // Get profile by profile ID (public endpoint)
+  // Get profile by profile ID (public endpoint) - MUST BE LAST
   @Get(':profileId')
   @HttpCode(HttpStatus.OK)
   async getProfileById(@Param('profileId') profileId: string) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
 import { Camera, Globe } from 'lucide-react';
@@ -49,22 +49,54 @@ export default function UserInfoCard({
   const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
-  const [currentData, setCurrentData] = useState({ 
+  const [publicProfile, setPublicProfile] = useState<{ id?: string; shareToken?: string; isActive?: boolean; viewCount?: number } | null>(null);
+  
+  // Compute current data from props using useMemo
+  const currentData = useMemo(() => ({
     avatar: getSafeAvatarUrl(avatar),
     name: name || 'Nguyễn Văn A',
     email: email || 'user@example.com',
     bio: bio || ''
-  });
+  }), [avatar, name, email, bio]);
 
-  // Update currentData whenever props change
+  // Fetch public profile data
   useEffect(() => {
-    setCurrentData({
-      avatar: getSafeAvatarUrl(avatar),
-      name: name || 'Nguyễn Văn A',
-      email: email || 'user@example.com',
-      bio: bio || ''
-    });
-  }, [avatar, name, email, bio]);
+    const fetchPublicProfile = async () => {
+      try {
+        const token = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
+        if (!token) {
+          console.warn('No auth token found');
+          return;
+        }
+
+        const url = '/api/profiles/public';
+        console.log('Fetching from URL:', url);
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include',
+          body: JSON.stringify({}),
+        });
+        console.log('Public profile response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('✅ Public profile SUCCESS data:', JSON.stringify(data, null, 2));
+          console.log('ShareToken from response:', data?.shareToken);
+          setPublicProfile(data);
+        } else {
+          const errorText = await response.text();
+          console.error('❌ Failed to fetch public profile:', response.status, errorText);
+        }
+      } catch (error) {
+        console.error('❌ Fetch error:', error);
+      }
+    };
+    fetchPublicProfile();
+  }, []);
 
   const handleEditClick = () => {
     setIsDialogOpen(true);
@@ -72,7 +104,6 @@ export default function UserInfoCard({
   };
 
   const handleSaveUserInfo = (data: { avatar: string; name: string; email: string; bio: string }) => {
-    setCurrentData(data);
     onSaveUserInfo?.(data);
   };
 
@@ -227,7 +258,7 @@ export default function UserInfoCard({
           name: currentData.name,
           bio: currentData.bio,
         }}
-        shareUrl={typeof window !== 'undefined' ? `${window.location.origin}/public-profile` : ''}
+        publicProfile={publicProfile || undefined}
       />
     </>
   );

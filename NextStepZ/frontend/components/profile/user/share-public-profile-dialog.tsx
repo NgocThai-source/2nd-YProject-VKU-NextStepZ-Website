@@ -71,7 +71,9 @@ export default function SharePublicProfileDialog({
   };
 
   const handleViewPublicProfile = () => {
-    router.push('/public-profile');
+    if (publicProfile?.shareToken) {
+      router.push(`/public-profile/${publicProfile.shareToken}`);
+    }
     onClose();
   };
 

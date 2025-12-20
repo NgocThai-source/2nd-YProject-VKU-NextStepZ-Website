@@ -409,13 +409,13 @@ export default function ProfessionalProfileCard({
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="min-w-0 flex-1">
                               <h4
-                                className="text-xs sm:text-base font-semibold text-white break-words"
+                                className="text-xs sm:text-base font-semibold text-white break-all"
                                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                               >
                                 {exp.position}
                               </h4>
                               <p
-                                className="text-cyan-400 text-xs sm:text-sm break-words"
+                                className="text-cyan-400 text-xs sm:text-sm break-all"
                                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                               >
                                 {exp.company}
@@ -676,13 +676,13 @@ export default function ProfessionalProfileCard({
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="min-w-0 flex-1">
                               <h4
-                                className="text-xs sm:text-base font-semibold text-white break-words"
+                                className="text-xs sm:text-base font-semibold text-white break-all"
                                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                               >
                                 {edu.school}
                               </h4>
                               <p
-                                className="text-cyan-400 text-xs sm:text-sm break-words"
+                                className="text-cyan-400 text-xs sm:text-sm break-all"
                                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                               >
                                 {edu.degree}

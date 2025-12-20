@@ -14,7 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EditPersonalInfoDialog from './edit-personal-info-dialog';
 
 interface PersonalInfo {
-  fullName: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   birthDate: string;
   city: string;
@@ -49,7 +50,8 @@ const formatDate = (dateString: string): string => {
 
 export default function PersonalInfoCard({
   data = {
-    fullName: 'Nguyễn Văn A',
+    firstName: 'Nguyễn',
+    lastName: 'Văn A',
     phone: '+84 912 345 678',
     birthDate: '1999-01-15',
     city: 'Hà Nội',
@@ -70,24 +72,30 @@ export default function PersonalInfoCard({
   onUpdate,
 }: PersonalInfoCardProps) {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [displayData, setDisplayData] = useState<PersonalInfo>(data);
+  const [displayData, setDisplayData] = useState<PersonalInfo>(() => ({
+    ...data,
+    socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+  }));
 
   // Update displayData whenever data prop changes
   useEffect(() => {
-    setDisplayData(data);
+    const normalizedData = {
+      ...data,
+      socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+    };
+    setDisplayData(normalizedData);
   }, [data]);
 
   const handleEditClick = () => {
     setIsDialogOpen(true);
   };
 
-  const handleSavePersonalInfo = (newData: PersonalInfo) => {
+  const handleSavePersonalInfo = (newData: PersonalInfo | any) => {
     setDisplayData(newData);
     onUpdate?.(newData);
   };
 
   const infoItems = [
-    { icon: User, label: 'Họ tên đầy đủ', key: 'fullName' as const },
     { icon: Phone, label: 'Số điện thoại', key: 'phone' as const },
     { icon: Calendar, label: 'Ngày sinh', key: 'birthDate' as const },
   ];
@@ -157,7 +165,7 @@ export default function PersonalInfoCard({
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-                  Địa chỉ
+                  Nơi sinh
                 </p>
                 <p className="text-sm sm:text-base text-white font-medium" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
                   {displayData.district && displayData.city

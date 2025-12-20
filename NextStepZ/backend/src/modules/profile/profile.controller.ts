@@ -11,11 +11,20 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ProfileService } from './profile.service';
-import { UpdateProfileDto } from './dto';
+import {
+  UpdateProfileDto,
+  UpdateUserInfoDto,
+  UpdatePersonalInfoDto,
+  UpdateProfessionalProfileDto,
+} from './dto';
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { multerConfig } from '../../config/multer.config';
 
 @Controller('profiles')
 export class ProfileController {
@@ -28,7 +37,7 @@ export class ProfileController {
     return this.profileService.getProfile(user.userId);
   }
 
-  // Update current user's profile
+  // Update current user's profile (full update)
   @Put('me')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
@@ -39,7 +48,55 @@ export class ProfileController {
     return this.profileService.updateProfile(user.userId, updateProfileDto);
   }
 
-  // Get or create public profile for current user - MUST BE BEFORE dynamic routes
+  // ===== User Info Endpoints =====
+  // Update user info (avatar, name, email, bio)
+  @Put('me/user-info')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateUserInfo(
+    @CurrentUser() user: any,
+    @Body() updateUserInfoDto: UpdateUserInfoDto,
+  ) {
+    return this.profileService.updateUserInfo(user.userId, updateUserInfoDto);
+  }
+
+  // Upload avatar
+  @Post('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file', multerConfig))
+  @HttpCode(HttpStatus.OK)
+  async uploadAvatar(
+    @CurrentUser() user: any,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.profileService.uploadAvatar(user.userId, file);
+  }
+
+  // ===== Personal Info Endpoints =====
+  // Update personal info (phone, birth date, city, district, social links)
+  @Put('me/personal-info')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updatePersonalInfo(
+    @CurrentUser() user: any,
+    @Body() updatePersonalInfoDto: UpdatePersonalInfoDto,
+  ) {
+    return this.profileService.updatePersonalInfo(user.userId, updatePersonalInfoDto);
+  }
+
+  // ===== Professional Profile Endpoints =====
+  // Update professional profile (objective, experiences, skills, education)
+  @Put('me/professional-profile')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async updateProfessionalProfile(
+    @CurrentUser() user: any,
+    @Body() updateProfessionalProfileDto: UpdateProfessionalProfileDto,
+  ) {
+    return this.profileService.updateProfessionalProfile(user.userId, updateProfessionalProfileDto);
+  }
+
+  // Get public profile endpoints
   @Post('public')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)

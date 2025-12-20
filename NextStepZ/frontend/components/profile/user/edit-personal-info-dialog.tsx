@@ -13,6 +13,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { VIETNAM_CITIES, getCityDistricts } from '@/lib/vietnam-cities';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
+import { API_URL } from '@/lib/api';
 
 interface SocialLink {
   id: string;
@@ -21,7 +24,8 @@ interface SocialLink {
 }
 
 interface PersonalInfoData {
-  fullName: string;
+  firstName?: string;
+  lastName?: string;
   phone: string;
   birthDate: string;
   city: string;
@@ -56,7 +60,6 @@ export default function EditPersonalInfoDialog({
   isOpen,
   onClose,
   data = {
-    fullName: 'Nguyễn Văn A',
     phone: '+84 912 345 678',
     birthDate: '1999-01-15',
     city: 'Hà Nội',
@@ -65,7 +68,16 @@ export default function EditPersonalInfoDialog({
   },
   onSave,
 }: EditPersonalInfoDialogProps) {
-  const [formData, setFormData] = useState<PersonalInfoData>(data);
+  const { getToken } = useAuth();
+  const { addToast } = useToast();
+  
+  // Ensure socialLinks is always an array
+  const normalizedData = {
+    ...data,
+    socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+  };
+
+  const [formData, setFormData] = useState<PersonalInfoData>(normalizedData);
   const [selectedCity, setSelectedCity] = useState(data.city || '');
   const [isSaving, setIsSaving] = useState(false);
   const [newSocialPlatform, setNewSocialPlatform] = useState('');
@@ -76,14 +88,22 @@ export default function EditPersonalInfoDialog({
 
   // Update formData whenever data prop changes
   useEffect(() => {
-    setFormData(data);
+    const normalized = {
+      ...data,
+      socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+    };
+    setFormData(normalized);
     setSelectedCity(data.city || '');
   }, [data]);
 
   // Sync form data when dialog opens or data changes
   useEffect(() => {
     if (isOpen) {
-      setFormData(data);
+      const normalized = {
+        ...data,
+        socialLinks: Array.isArray(data.socialLinks) ? data.socialLinks : [],
+      };
+      setFormData(normalized);
       setSelectedCity(data.city || '');
     }
   }, [isOpen, data]);
@@ -153,9 +173,44 @@ export default function EditPersonalInfoDialog({
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      const token = getToken?.();
+      if (!token) {
+        addToast('Vui lòng đăng nhập để cập nhật thông tin', 'error');
+        return;
+      }
+
+      // Prepare social links in correct format
+      const socialLinksData = formData.socialLinks.map((link) => ({
+        platform: link.platform,
+        url: link.url,
+      }));
+
+      const response = await fetch(`${API_URL}/profiles/me/personal-info`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          phone: formData.phone,
+          birthDate: formData.birthDate,
+          city: selectedCity,
+          district: formData.district,
+          socialLinks: socialLinksData,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const result = await response.json();
       onSave?.(formData);
+      addToast('Cập nhật thông tin cá nhân thành công!', 'success');
       onClose();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      addToast('Lỗi khi cập nhật thông tin. Vui lòng thử lại.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -186,31 +241,11 @@ export default function EditPersonalInfoDialog({
           transition={{ duration: 0.3 }}
           className="px-6 py-6 space-y-6 max-h-[calc(100vh-300px)] overflow-y-auto"
         >
-          {/* Họ Tên */}
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="space-y-2"
-          >
-            <label className="block text-sm font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-              Họ tên đầy đủ
-            </label>
-            <Input
-              type="text"
-              value={formData.fullName}
-              onChange={(e) => handleInputChange('fullName', e.target.value)}
-              placeholder="Nhập họ tên của bạn"
-              className="bg-slate-800/50 border-slate-600 text-white placeholder-gray-500 focus:border-cyan-400 focus:ring-cyan-400 text-sm md:text-base"
-              style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-            />
-          </motion.div>
-
           {/* Số Điện Thoại */}
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
+            transition={{ delay: 0.1 }}
             className="space-y-2"
           >
             <label className="block text-sm font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>

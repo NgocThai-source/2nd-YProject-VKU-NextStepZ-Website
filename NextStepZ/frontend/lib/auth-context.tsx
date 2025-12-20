@@ -14,6 +14,7 @@ export interface DemoUser {
   phone?: string;
   birthDate?: string;
   province?: string;
+  district?: string;
   school?: string;
   major?: string;
   companyName?: string;

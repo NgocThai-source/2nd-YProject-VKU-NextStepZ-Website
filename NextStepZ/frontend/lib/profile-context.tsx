@@ -27,11 +27,45 @@ const formatBirthDate = (birthDate: string | Date | null | undefined): string =>
   }
 };
 
+export interface WorkExperience {
+  id: string;
+  position: string;
+  company: string;
+  startDate: string;
+  endDate?: string;
+  description?: string;
+  isCurrent: boolean;
+}
+
+export interface Skill {
+  id: string;
+  name: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+}
+
+export interface Education {
+  id: string;
+  school: string;
+  degree?: string;
+  field?: string;
+  graduationYear?: string;
+}
+
+export interface CareerProfile {
+  id?: string;
+  objective?: string;
+  experiences: WorkExperience[];
+  education: Education[];
+  skills: Skill[];
+}
+
 export interface UserProfile {
   id?: string;
   userId?: string;
   avatar: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
   email: string;
   bio: string;
   phone: string;
@@ -43,6 +77,7 @@ export interface UserProfile {
     platform: string;
     url: string;
   }>;
+  careerProfile?: CareerProfile;
   fullName?: string;
   address?: string;
   phoneNumber?: string;
@@ -161,9 +196,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           phone: data.phone || '',
           birthDate: formattedBirthDate || formatBirthDate(user.birthDate),
           city: data.province || '',
-          district: '',
+          district: data.district || '',
           phoneNumber: data.phone || '',
           socialLinks: data.socialLinks || [],
+          careerProfile: data.careerProfile ? {
+            id: data.careerProfile.id,
+            objective: data.careerProfile.objective || '',
+            experiences: data.careerProfile.experiences || [],
+            education: data.careerProfile.education || [],
+            skills: data.careerProfile.skills || [],
+          } : undefined,
         });
       }
     } catch (err) {
@@ -197,7 +239,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           phone: user.phone || '',
           birthDate: formatBirthDate(user.birthDate),
           city: user.province || '',
-          district: '',
+          district: user.district || '',
           phoneNumber: user.phone || '',
           socialLinks: [],
         };
@@ -246,9 +288,16 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               phone: data.phone || '',
               birthDate: formattedBirthDate || formatBirthDate(user.birthDate),
               city: data.province || '',
-              district: '',
+              district: data.district || '',
               phoneNumber: data.phone || '',
               socialLinks: data.socialLinks || [],
+              careerProfile: data.careerProfile ? {
+                id: data.careerProfile.id,
+                objective: data.careerProfile.objective || '',
+                experiences: data.careerProfile.experiences || [],
+                education: data.careerProfile.education || [],
+                skills: data.careerProfile.skills || [],
+              } : undefined,
             });
           }
         } catch (err) {
@@ -297,7 +346,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           phone: user.phone || '',
           birthDate: formatBirthDate(user.birthDate),
           city: user.province || '',
-          district: '',
+          district: user.district || '',
           socialLinks: [],
         });
         setEmployerProfile(DEFAULT_EMPLOYER_PROFILE);

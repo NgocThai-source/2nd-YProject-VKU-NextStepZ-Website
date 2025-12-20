@@ -34,10 +34,8 @@ export const getPostCategoryLabel = (category: string): string => {
 
 export const getUserRoleLabel = (role: string): string => {
   const labels: Record<string, string> = {
-    student: '📚 Sinh viên',
+    user: '📚 Sinh viên',
     employer: '🤝 Nhà tuyển dụng',
-    mentor: '🎓 Mentor',
-    alumni: '⭐ Cựu sinh viên',
   };
   return labels[role] || role;
 };

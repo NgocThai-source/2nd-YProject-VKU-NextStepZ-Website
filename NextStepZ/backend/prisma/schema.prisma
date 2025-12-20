@@ -71,6 +71,10 @@ model Profile {
   bio         String?
   birthDate   DateTime?
   
+  // Location info
+  city        String?  // Thành phố/Tỉnh
+  district    String?  // Quận/Huyện
+  
   // Education info
   province    String?  // Quê quán/Tỉnh thành
   school      String?  // Trường đại học
@@ -78,7 +82,6 @@ model Profile {
   
   // Professional info
   title       String?  // Job title
-  skills      String[] @default([])
   objective   String?  // Career objective
   
   // Social & Links
@@ -100,6 +103,21 @@ model Profile {
   @@map("profiles")
 }
 
+// Skill Model
+model Skill {
+  id              String   @id @default(cuid())
+  careerProfileId String
+  careerProfile   CareerProfile @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  
+  name            String
+  level           String   @default("intermediate") // beginner, intermediate, advanced, expert
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("skills")
+}
+
 // Career Profile Model - For detailed career information
 model CareerProfile {
   id              String   @id @default(cuid())
@@ -109,6 +127,7 @@ model CareerProfile {
   objective       String?  // Career objective (also stored in Profile.objective)
   experiences     Experience[]
   education       Education[]
+  skills          Skill[]
   
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt

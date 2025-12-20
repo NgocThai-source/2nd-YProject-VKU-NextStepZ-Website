@@ -6,7 +6,9 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/auth-context';
-import { useProfile } from '@/lib/profile-context';
+import { useProfile, type CareerProfile } from '@/lib/profile-context';
+import { useToast } from '@/components/ui/toast';
+import { API_URL } from '@/lib/api';
 
 // User Profile Components
 import {
@@ -14,6 +16,7 @@ import {
   PersonalInfoCard,
   ProfessionalProfileCard,
   UserActivity,
+  type PersonalInfo,
 } from '@/components/profile/user';
 
 // Employer Profile Components
@@ -27,9 +30,10 @@ import {
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, isLoading: isAuthLoading, getToken } = useAuth();
   const [userInfoEdit, setUserInfoEdit] = useState(false);
   const { userProfile, employerProfile, updateUserProfile } = useProfile();
+  const { addToast } = useToast();
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -59,6 +63,82 @@ export default function ProfilePage() {
       bio: data.bio,
     });
   };
+
+  const handleProfessionalProfileUpdate = async (data: CareerProfile) => {
+    try {
+      const token = getToken?.();
+      if (!token) {
+        addToast('Vui lòng đăng nhập để cập nhật thông tin', 'error');
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/profiles/me/professional-profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          objective: data.objective || '',
+          experiences: (data.experiences || []).map(exp => ({
+            position: exp.position,
+            company: exp.company,
+            startDate: exp.startDate,
+            endDate: exp.endDate || null,
+            isCurrent: exp.isCurrent || false,
+            description: exp.description || null,
+          })),
+          skills: (data.skills || []).map(skill => ({
+            name: skill.name,
+            level: skill.level || 'intermediate',
+          })),
+          education: (data.education || []).map(edu => ({
+            school: edu.school,
+            degree: edu.degree || null,
+            field: edu.field || null,
+            graduationYear: edu.graduationYear || null,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update professional profile');
+      }
+
+      const result = await response.json();
+      
+      // Update local context
+      updateUserProfile({
+        careerProfile: {
+          id: result.careerProfile?.id,
+          objective: result.careerProfile?.objective || data.objective,
+          experiences: result.careerProfile?.experiences || data.experiences,
+          skills: result.careerProfile?.skills || data.skills,
+          education: result.careerProfile?.education || data.education,
+        },
+      });
+
+      addToast('Cập nhật hồ sơ chuyên môn thành công!', 'success');
+    } catch (error) {
+      console.error('Error updating professional profile:', error);
+      addToast('Lỗi khi cập nhật hồ sơ chuyên môn. Vui lòng thử lại.', 'error');
+    }
+  };
+
+  const userPosts: CommunityPost[] = [];
+
+  interface CommunityPost {
+    id: string;
+    title: string;
+    excerpt: string;
+    category: string;
+    postDate: string;
+    engagement: {
+      likes: number;
+      comments: number;
+      shares: number;
+    };
+  }
 
   // Loading state
   if (isAuthLoading || !userProfile) {
@@ -209,45 +289,8 @@ export default function ProfilePage() {
 
               {/* Employer Activity */}
               <EmployerActivity
-                posts={[
-                  {
-                    id: '1',
-                    title: 'Chia sẻ kinh nghiệm tuyển dụng lập trình viên giỏi',
-                    excerpt: 'Sau 5 năm kinh nghiệm tuyển dụng, tôi muốn chia sẻ những mẹo hiệu quả...',
-                    category: 'Chia sẻ kinh nghiệm',
-                    postDate: '3 ngày trước',
-                    engagement: {
-                      likes: 125,
-                      comments: 23,
-                      shares: 8,
-                    },
-                  },
-                  {
-                    id: '2',
-                    title: 'Công ty chúng tôi đang tuyển dụng 10 vị trí',
-                    excerpt: 'Chúng tôi đang tìm kiếm các lập trình viên, designer và product manager...',
-                    category: 'Tuyển dụng',
-                    postDate: '1 tuần trước',
-                    engagement: {
-                      likes: 89,
-                      comments: 15,
-                      shares: 12,
-                    },
-                  },
-                  {
-                    id: '3',
-                    title: 'Thảo luận: Xu hướng công nghệ 2024',
-                    excerpt: 'AI, blockchain, và web3 đang là những xu hướng nóng nhất...',
-                    category: 'Thảo luận',
-                    postDate: '2 tuần trước',
-                    engagement: {
-                      likes: 234,
-                      comments: 42,
-                      shares: 19,
-                    },
-                  },
-                ]}
-                totalPosts={8}
+                posts={[]}
+                totalPosts={0}
                 onViewAllClick={() => router.push('/community')}
               />
             </motion.div>
@@ -270,12 +313,13 @@ export default function ProfilePage() {
               {/* Personal Info Card */}
               <PersonalInfoCard
                 data={{
-                  fullName: userProfile?.name,
-                  phone: userProfile?.phone,
-                  birthDate: userProfile?.birthDate,
-                  city: userProfile?.city,
-                  district: userProfile?.district,
-                  socialLinks: userProfile?.socialLinks,
+                  firstName: userProfile?.firstName || '',
+                  lastName: userProfile?.lastName || '',
+                  phone: userProfile?.phone || '',
+                  birthDate: userProfile?.birthDate || '',
+                  city: userProfile?.city || '',
+                  district: userProfile?.district || '',
+                  socialLinks: Array.isArray(userProfile?.socialLinks) ? userProfile.socialLinks : [],
                 }}
                 onUpdate={(data) => {
                   updateUserProfile({
@@ -290,58 +334,33 @@ export default function ProfilePage() {
 
               {/* Professional Profile Card */}
               <ProfessionalProfileCard
-                data={{
+                data={userProfile?.careerProfile ? {
+                  objective: userProfile.careerProfile.objective || '',
+                  experiences: (userProfile.careerProfile.experiences || []).map(exp => ({
+                    ...exp,
+                    endDate: exp.endDate || '',
+                    description: exp.description || '',
+                  })),
+                  skills: userProfile.careerProfile.skills || [],
+                  education: (userProfile.careerProfile.education || []).map(edu => ({
+                    ...edu,
+                    degree: edu.degree || '',
+                    field: edu.field || '',
+                    graduationYear: edu.graduationYear || '',
+                  })),
+                } : {
                   objective: '',
                   experiences: [],
                   skills: [],
                   education: [],
                 }}
-                onUpdate={(data) => {
-                  console.log('Professional profile updated:', data);
-                }}
+                onUpdate={handleProfessionalProfileUpdate}
               />
 
               {/* User Activity */}
               <UserActivity
-                posts={[
-                  {
-                    id: '1',
-                    title: 'Kinh nghiệm phỏng vấn tại các công ty tech lớn',
-                    excerpt: 'Tôi vừa hoàn thành các vòng phỏng vấn tại Google, Meta và Amazon. Muốn chia sẻ...',
-                    category: 'Chia sẻ kinh nghiệm',
-                    postDate: '5 ngày trước',
-                    engagement: {
-                      likes: 89,
-                      comments: 34,
-                      shares: 12,
-                    },
-                  },
-                  {
-                    id: '2',
-                    title: 'Mẹo học React hooks hiệu quả',
-                    excerpt: 'Sau 2 năm làm việc với React, tôi tìm ra cách học hooks một cách...',
-                    category: 'Chia sẻ kinh nghiệm',
-                    postDate: '2 tuần trước',
-                    engagement: {
-                      likes: 156,
-                      comments: 42,
-                      shares: 23,
-                    },
-                  },
-                  {
-                    id: '3',
-                    title: 'Nên chọn startup hay công ty lớn?',
-                    excerpt: 'Tôi đang bối rối giữa việc nhận offer từ startup và công ty Fortune 500...',
-                    category: 'Thảo luận',
-                    postDate: '3 tuần trước',
-                    engagement: {
-                      likes: 234,
-                      comments: 67,
-                      shares: 18,
-                    },
-                  },
-                ]}
-                totalPosts={12}
+                posts={userPosts}
+                totalPosts={userPosts.length}
                 onViewAllClick={() => router.push('/community')}
               />
             </motion.div>

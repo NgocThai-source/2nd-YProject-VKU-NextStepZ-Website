@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsArray, IsObject, IsDateString } from 'class-validator';
+import { IsString, IsOptional, IsArray, IsObject, IsDateString, IsNumber, IsBoolean } from 'class-validator';
 
 export class CreateProfileDto {
   @IsOptional()
@@ -28,6 +28,193 @@ export class CreateProfileDto {
   @IsOptional()
   @IsDateString()
   birthDate?: string;
+}
+
+// ===== User Info DTO =====
+export class UpdateUserInfoDto {
+  @IsOptional()
+  @IsString()
+  avatar?: string;
+
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  email?: string;
+
+  @IsOptional()
+  @IsString()
+  bio?: string;
+}
+
+// ===== Personal Info DTO =====
+export class SocialLinkDto {
+  @IsString()
+  platform: string;
+
+  @IsString()
+  url: string;
+}
+
+export class UpdatePersonalInfoDto {
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @IsOptional()
+  @IsDateString()
+  birthDate?: string;
+
+  @IsOptional()
+  @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  @IsArray()
+  socialLinks?: SocialLinkDto[];
+}
+
+// ===== Career Experience DTO =====
+export class CreateExperienceDto {
+  @IsString()
+  position: string;
+
+  @IsString()
+  company: string;
+
+  @IsString()
+  startDate: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isCurrent?: boolean;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+export class UpdateExperienceDto {
+  @IsOptional()
+  @IsString()
+  position?: string;
+
+  @IsOptional()
+  @IsString()
+  company?: string;
+
+  @IsOptional()
+  @IsString()
+  startDate?: string;
+
+  @IsOptional()
+  @IsString()
+  endDate?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isCurrent?: boolean;
+
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+// ===== Skill DTO =====
+export class CreateSkillDto {
+  @IsString()
+  name: string;
+
+  @IsOptional()
+  @IsString()
+  level?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+}
+
+export class UpdateSkillDto {
+  @IsOptional()
+  @IsString()
+  name?: string;
+
+  @IsOptional()
+  @IsString()
+  level?: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+}
+
+// ===== Education DTO =====
+export class CreateEducationDto {
+  @IsString()
+  school: string;
+
+  @IsOptional()
+  @IsString()
+  degree?: string;
+
+  @IsOptional()
+  @IsString()
+  field?: string;
+
+  @IsOptional()
+  @IsString()
+  graduationYear?: string;
+}
+
+export class UpdateEducationDto {
+  @IsOptional()
+  @IsString()
+  school?: string;
+
+  @IsOptional()
+  @IsString()
+  degree?: string;
+
+  @IsOptional()
+  @IsString()
+  field?: string;
+
+  @IsOptional()
+  @IsString()
+  graduationYear?: string;
+}
+
+// ===== Professional Profile DTO =====
+export class UpdateProfessionalProfileDto {
+  @IsOptional()
+  @IsString()
+  objective?: string;
+
+  @IsOptional()
+  @IsArray()
+  experiences?: CreateExperienceDto[];
+
+  @IsOptional()
+  @IsArray()
+  skills?: CreateSkillDto[];
+
+  @IsOptional()
+  @IsArray()
+  education?: CreateEducationDto[];
 }
 
 export class UpdateProfileDto {
@@ -61,6 +248,14 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
+  city?: string;
+
+  @IsOptional()
+  @IsString()
+  district?: string;
+
+  @IsOptional()
+  @IsString()
   province?: string;
 
   @IsOptional()
@@ -74,10 +269,6 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   title?: string;
-
-  @IsOptional()
-  @IsArray()
-  skills?: string[];
 
   @IsOptional()
   @IsString()
@@ -106,7 +297,9 @@ export class PublicProfileResponseDto {
     school?: string;
     major?: string;
     title?: string;
-    skills: string[];
+    city?: string;
+    district?: string;
+    objective?: string;
     user: {
       id: string;
       username: string;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import Image from 'next/image';
 import { Camera } from 'lucide-react';
@@ -13,6 +13,9 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
+import { API_URL } from '@/lib/api';
 
 const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=User';
 
@@ -56,23 +59,48 @@ export default function EditUserInfoDialog({
   data,
   onSave,
 }: EditUserInfoDialogProps) {
+  const { getToken } = useAuth();
+  const { addToast } = useToast();
+  
   const [formData, setFormData] = useState(data ? {
     avatar: getSafeAvatarUrl(data.avatar),
-    name: data.name || 'Nguyễn Văn A',
+    firstName: data.name?.split(' ')[0] || 'Nguyễn',
+    lastName: data.name?.split(' ').slice(1).join(' ') || 'Văn A',
     email: data.email || 'user@example.com',
     bio: data.bio || '',
   } : {
     avatar: DEFAULT_AVATAR,
-    name: 'Nguyễn Văn A',
+    firstName: 'Nguyễn',
+    lastName: 'Văn A',
     email: 'user@example.com',
     bio: '',
   });
+  
   const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+
+  useEffect(() => {
+    if (data && isOpen) {
+      const nameParts = data.name?.split(' ') || ['Nguyễn', 'Văn A'];
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+      
+      setFormData({
+        avatar: getSafeAvatarUrl(data.avatar),
+        firstName,
+        lastName,
+        email: data.email || 'user@example.com',
+        bio: data.bio || '',
+      });
+      setAvatarFile(null);
+    }
+  }, [data, isOpen]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setAvatarFile(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setFormData({
@@ -94,12 +122,79 @@ export default function EditUserInfoDialog({
     });
   };
 
+  const uploadAvatar = async (file: File): Promise<string> => {
+    const token = getToken?.();
+    if (!token) throw new Error('No auth token');
+
+    const formDataUpload = new FormData();
+    formDataUpload.append('file', file);
+
+    const response = await fetch(`${API_URL}/profiles/me/avatar`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      body: formDataUpload,
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to upload avatar');
+    }
+
+    const result = await response.json();
+    return result.avatar || formData.avatar;
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500)); // Simulate API call
-      onSave?.(formData);
+      const token = getToken?.();
+      if (!token) {
+        addToast('Vui lòng đăng nhập để cập nhật thông tin', 'error');
+        return;
+      }
+
+      let avatarUrl = formData.avatar;
+
+      // Upload avatar if file was selected
+      if (avatarFile) {
+        avatarUrl = await uploadAvatar(avatarFile);
+      }
+
+      // Update user info
+      const response = await fetch(`${API_URL}/profiles/me/user-info`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          bio: formData.bio,
+          avatar: avatarUrl,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+
+      const result = await response.json();
+      
+      onSave?.({
+        avatar: result.avatar || avatarUrl,
+        name: `${result.firstName || formData.firstName} ${result.lastName || formData.lastName}`,
+        email: result.email || formData.email,
+        bio: result.bio || formData.bio,
+      });
+
+      addToast('Cập nhật thông tin thành công!', 'success');
       onClose();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      addToast('Lỗi khi cập nhật thông tin. Vui lòng thử lại.', 'error');
     } finally {
       setIsSaving(false);
     }
@@ -107,12 +202,18 @@ export default function EditUserInfoDialog({
 
   const handleReset = () => {
     if (data) {
+      const nameParts = data.name?.split(' ') || ['Nguyễn', 'Văn A'];
+      const firstName = nameParts[0];
+      const lastName = nameParts.slice(1).join(' ');
+      
       setFormData({
         avatar: getSafeAvatarUrl(data.avatar),
-        name: data.name || 'Nguyễn Văn A',
+        firstName,
+        lastName,
         email: data.email || 'user@example.com',
         bio: data.bio || '',
       });
+      setAvatarFile(null);
     }
   };
 
@@ -198,17 +299,33 @@ export default function EditUserInfoDialog({
             transition={{ delay: 0.2 }}
             className="space-y-4"
           >
-            {/* Name Field */}
+            {/* First Name Field */}
             <div className="space-y-2">
               <label className="block text-sm font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                Họ tên
+                Tên
               </label>
               <Input
                 type="text"
-                name="name"
-                value={formData.name}
+                name="firstName"
+                value={formData.firstName}
                 onChange={handleInputChange}
-                placeholder="Nhập họ tên của bạn"
+                placeholder="Tên"
+                className="bg-slate-800/50 border-slate-600 text-white placeholder-gray-500 focus:border-cyan-400 focus:ring-cyan-400 text-sm md:text-base"
+                style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+              />
+            </div>
+
+            {/* Last Name Field */}
+            <div className="space-y-2">
+              <label className="block text-sm font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                Họ
+              </label>
+              <Input
+                type="text"
+                name="lastName"
+                value={formData.lastName}
+                onChange={handleInputChange}
+                placeholder="Họ"
                 className="bg-slate-800/50 border-slate-600 text-white placeholder-gray-500 focus:border-cyan-400 focus:ring-cyan-400 text-sm md:text-base"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />

@@ -21,8 +21,8 @@ export class RegisterDto {
   @IsString()
   username?: string;
 
-  @IsEnum(['user', 'recruiter'])
-  role: 'user' | 'recruiter';
+  @IsEnum(['user', 'employer'])
+  role: 'user' | 'employer';
 
   // Student-specific fields
   @IsOptional()

@@ -10,22 +10,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
 import { SharePublicProfileDialog } from '@/components/profile/user';
 import { ShareEmployerPublicProfileDialog, EmployerJobPostings, EmployerActivity } from '@/components/profile/employer';
+import { PublicPersonalInfoCard, PublicProfessionalInfoCard, PublicForumPostsCard } from '@/components/profile/public';
 import { useProfileUpdates } from '@/lib/hooks/use-profile-updates';
 import { API_URL } from '@/lib/api';
-
-const skillLevelColors = {
-  beginner: 'bg-blue-500',
-  intermediate: 'bg-cyan-500',
-  advanced: 'bg-purple-500',
-  expert: 'bg-pink-500',
-};
-
-const skillLevels = {
-  beginner: 'Cơ bản',
-  intermediate: 'Trung cấp',
-  advanced: 'Nâng cao',
-  expert: 'Chuyên gia',
-};
 
 const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
 
@@ -92,6 +79,19 @@ interface EmployerProfile {
   jobPostings?: JobPosting[];
 }
 
+interface ForumPost {
+  id: string;
+  title: string;
+  excerpt: string;
+  category: string;
+  postDate: string;
+  engagement: {
+    likes: number;
+    comments: number;
+    shares: number;
+  };
+}
+
 interface PublicProfileData {
   id: string;
   shareToken: string;
@@ -106,10 +106,14 @@ interface PublicProfileData {
     avatar: string | null;
     bio: string | null;
     title: string | null;
+    birthDate?: string | null;
+    city?: string | null;
+    district?: string | null;
     objective?: string;
     experience?: string;
     education?: string;
     skills?: Skill[];
+    userPosts?: ForumPost[];
     socialLinks?: Array<{
       id: string;
       platform: string;
@@ -687,32 +691,6 @@ export default function PublicProfileTokenPage() {
                     </motion.button>
                   </CardContent>
                 </Card>
-
-                {/* Contact Info */}
-                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                  <CardContent className="p-6 space-y-3">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-                        Email
-                      </p>
-                      <a
-                        href={`mailto:${profile.email}`}
-                        className="text-sm text-cyan-400 hover:text-cyan-300 break-all"
-                        style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-                      >
-                        {profile.email}
-                      </a>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-                        Số điện thoại
-                      </p>
-                      <p className="text-sm text-cyan-400" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                        {profile.phone || 'Chưa cập nhật'}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
             </motion.div>
 
@@ -723,145 +701,27 @@ export default function PublicProfileTokenPage() {
               transition={{ duration: 0.3 }}
               className="lg:col-span-2 space-y-6"
             >
-              {/* Objective */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                    Mục tiêu nghề nghiệp
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-sm text-gray-300 leading-relaxed" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                    {careerProfile?.objective || 'Chưa cập nhật'}
-                  </p>
-                </CardContent>
-              </Card>
+              {/* Personal Info Card */}
+              <PublicPersonalInfoCard
+                data={{
+                  phone: profile.phone,
+                  birthDate: profile.birthDate,
+                  city: profile.city,
+                  district: profile.district,
+                  email: profile.email,
+                }}
+              />
 
-              {/* Experience */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                    Kinh nghiệm làm việc
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {careerProfile?.experiences && careerProfile.experiences.length > 0 ? (
-                    careerProfile.experiences.map((exp, idx) => (
-                      <motion.div
-                        key={exp.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.1 }}
-                        className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors"
-                      >
-                        <div className="flex items-start justify-between gap-4 mb-2">
-                          <div>
-                            <h3 className="font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                              {exp.position}
-                            </h3>
-                            <p className="text-cyan-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                              {exp.company}
-                            </p>
-                          </div>
-                          {exp.isCurrent && (
-                            <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-semibold whitespace-nowrap" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                              Hiện tại
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-xs text-gray-400 mb-2" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                          {exp.startDate} - {exp.endDate || (exp.isCurrent ? 'Hiện tại' : 'N/A')}
-                        </p>
-                        {exp.description && (
-                          <p className="text-sm text-gray-300" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                            {exp.description}
-                          </p>
-                        )}
-                      </motion.div>
-                    ))
-                  ) : (
-                    <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                      Chưa có kinh nghiệm
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Professional Info Cards */}
+              <PublicProfessionalInfoCard
+                data={careerProfile}
+              />
 
-              {/* Skills */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                    Kỹ năng
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {careerProfile?.skills && careerProfile.skills.length > 0 ? (
-                    <motion.div
-                      className="flex flex-wrap gap-2"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                    >
-                      {careerProfile.skills.map((skill: Skill, idx: number) => (
-                        <motion.div
-                          key={skill.id}
-                          initial={{ opacity: 0, scale: 0.8 }}
-                          animate={{ opacity: 1, scale: 1 }}
-                          transition={{ delay: idx * 0.05 }}
-                          className={`flex items-center gap-2 px-4 py-2 rounded-full text-white font-semibold ${
-                            skillLevelColors[skill.level as keyof typeof skillLevelColors]
-                          }`}
-                          style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-                        >
-                          {skill.name}
-                          <span className="text-xs opacity-75">({skillLevels[skill.level as keyof typeof skillLevels]})</span>
-                        </motion.div>
-                      ))}
-                    </motion.div>
-                  ) : (
-                    <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                      Chưa có kỹ năng
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Education */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardHeader>
-                  <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                    Học vấn
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {careerProfile?.education && careerProfile.education.length > 0 ? (
-                    careerProfile.education.map((edu, idx) => (
-                      <motion.div
-                        key={edu.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: idx * 0.1 }}
-                        className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors"
-                      >
-                        <h3 className="font-semibold text-white mb-1" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                          {edu.school}
-                        </h3>
-                        {edu.degree && (
-                          <p className="text-cyan-400 text-sm mb-2" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                            {edu.degree}
-                          </p>
-                        )}
-                        <p className="text-sm text-gray-300" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                          {edu.field} • {edu.graduationYear}
-                        </p>
-                      </motion.div>
-                    ))
-                  ) : (
-                    <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                      Chưa có học vấn
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Forum Posts Card */}
+              <PublicForumPostsCard
+                posts={profile.userPosts || []}
+                isLoading={false}
+              />
             </motion.div>
 
             {/* Right Sidebar */}
@@ -873,15 +733,15 @@ export default function PublicProfileTokenPage() {
             >
               <div className="sticky top-24 space-y-6">
                 {/* Social Links */}
-                {profile.socialLinks && profile.socialLinks.length > 0 && (
-                  <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                    <CardHeader>
-                      <CardTitle className="text-white text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                        Liên kết xã hội
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-3">
-                      {profile.socialLinks.map((link) => (
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                      Liên kết xã hội
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {profile.socialLinks && profile.socialLinks.length > 0 ? (
+                      profile.socialLinks.map((link) => (
                         <a
                           key={link.id}
                           href={link.url}
@@ -896,10 +756,14 @@ export default function PublicProfileTokenPage() {
                             {link.url}
                           </p>
                         </a>
-                      ))}
-                    </CardContent>
-                  </Card>
-                )}
+                      ))
+                    ) : (
+                      <p className="text-gray-400 text-sm text-center py-4" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        Chưa có liên kết xã hội
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
 
                 {/* Profile Stats */}
                 <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">

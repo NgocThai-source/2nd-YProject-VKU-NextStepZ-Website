@@ -23,7 +23,7 @@ const isValidUrl = (url: string): boolean => {
 
 // Helper function to get safe avatar URL
 const getSafeAvatarUrl = (url?: string): string => {
-  if (isValidUrl(url)) return url;
+  if (url && isValidUrl(url)) return url;
   return DEFAULT_AVATAR;
 };
 

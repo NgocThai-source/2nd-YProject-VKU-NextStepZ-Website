@@ -3,13 +3,13 @@
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Briefcase,
   Target,
+  Briefcase,
   Award,
+  GraduationCap,
   Plus,
   Trash2,
   Edit2,
-  GraduationCap,
   X,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -40,19 +40,17 @@ interface Education {
   graduationYear: string;
 }
 
-interface CareerProfileData {
+interface ProfessionalProfileData {
   objective: string;
   experiences: WorkExperience[];
   skills: Skill[];
   education: Education[];
 }
 
-interface CareerProfileCardProps {
-  data?: CareerProfileData;
-  onUpdate?: (data: CareerProfileData) => void;
+interface ProfessionalProfileCardProps {
+  data?: ProfessionalProfileData;
+  onUpdate?: (data: ProfessionalProfileData) => void;
 }
-
-export type { CareerProfileData };
 
 const skillLevels = {
   beginner: 'Cơ bản',
@@ -68,63 +66,45 @@ const skillLevelColors = {
   expert: 'bg-pink-500',
 };
 
-export default function CareerProfileCard({
-  data = {
-    objective:
-      'Tìm kiếm vị trí Frontend Developer với mục tiêu phát triển kỹ năng và đóng góp cho các dự án công nghệ.',
-    experiences: [
-      {
-        id: '1',
-        position: 'Frontend Developer',
-        company: 'Tech Company A',
-        startDate: '2023-01',
-        endDate: '',
-        description: 'Phát triển ứng dụng web với React và TypeScript',
-        isCurrent: true,
-      },
-      {
-        id: '2',
-        position: 'Junior Developer',
-        company: 'Startup B',
-        startDate: '2022-06',
-        endDate: '2022-12',
-        description: 'Xây dựng các tính năng UI/UX sử dụng Vue.js',
-        isCurrent: false,
-      },
-    ],
-    skills: [
-      { id: '1', name: 'React', level: 'advanced' },
-      { id: '2', name: 'TypeScript', level: 'intermediate' },
-      { id: '3', name: 'Tailwind CSS', level: 'advanced' },
-      { id: '4', name: 'Next.js', level: 'intermediate' },
-    ],
-    education: [
-      {
-        id: '1',
-        school: 'Đại học Bách Khoa Hà Nội',
-        degree: 'Cử nhân',
-        field: 'Công nghệ thông tin',
-        graduationYear: '2023',
-      },
-    ],
-  },
+const defaultData: ProfessionalProfileData = {
+  objective: '',
+  experiences: [],
+  skills: [],
+  education: [],
+};
+
+export default function ProfessionalProfileCard({
+  data = defaultData,
   onUpdate,
-}: CareerProfileCardProps) {
+}: ProfessionalProfileCardProps) {
   const [isEditMode, setIsEditMode] = useState(false);
-  const [editData, setEditData] = useState<CareerProfileData>(data);
-  const [activeTab, setActiveTab] = useState<
-    'objective' | 'experience' | 'skills' | 'education'
-  >('objective');
+  const [editData, setEditData] = useState<ProfessionalProfileData>(data);
+  const [activeTab, setActiveTab] = useState<'objective' | 'experience' | 'skills' | 'education'>(
+    'objective'
+  );
+
+  // Tab specific edit states
   const [editingExperienceId, setEditingExperienceId] = useState<string | null>(null);
-  const [editingEducationId, setEditingEducationId] = useState<string | null>(null);
   const [tempExperience, setTempExperience] = useState<WorkExperience | null>(null);
+  const [editingEducationId, setEditingEducationId] = useState<string | null>(null);
   const [tempEducation, setTempEducation] = useState<Education | null>(null);
 
-  // Form states
+  // Add form states
   const [newExperience, setNewExperience] = useState<Partial<WorkExperience>>({});
   const [newSkill, setNewSkill] = useState<Partial<Skill>>({});
   const [newEducation, setNewEducation] = useState<Partial<Education>>({});
 
+  // Update editData whenever data prop changes
+  useEffect(() => {
+    setEditData(data);
+  }, [data]);
+
+  // ===== Objective Handlers =====
+  const handleObjectiveChange = (value: string) => {
+    setEditData({ ...editData, objective: value });
+  };
+
+  // ===== Experience Handlers =====
   const handleAddExperience = () => {
     if (!newExperience.position || !newExperience.company) return;
     const experience: WorkExperience = {
@@ -163,6 +143,7 @@ export default function CareerProfileCard({
     setEditingExperienceId(null);
   };
 
+  // ===== Skills Handlers =====
   const handleAddSkill = () => {
     if (!newSkill.name) return;
     const skill: Skill = {
@@ -184,6 +165,7 @@ export default function CareerProfileCard({
     });
   };
 
+  // ===== Education Handlers =====
   const handleAddEducation = () => {
     if (!newEducation.school || !newEducation.degree) return;
     const education: Education = {
@@ -220,9 +202,19 @@ export default function CareerProfileCard({
     setEditingEducationId(null);
   };
 
+  // ===== Save/Cancel Handlers =====
   const handleSave = () => {
     onUpdate?.(editData);
     setIsEditMode(false);
+  };
+
+  const handleCancel = () => {
+    setEditData(data);
+    setIsEditMode(false);
+    setEditingExperienceId(null);
+    setTempExperience(null);
+    setEditingEducationId(null);
+    setTempEducation(null);
   };
 
   const tabs = [
@@ -235,20 +227,24 @@ export default function CareerProfileCard({
   return (
     <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
       <CardHeader className="flex flex-row items-center justify-between pb-4">
-        <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>Hồ sơ nghề nghiệp</CardTitle>
-        <motion.button
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => (isEditMode ? handleSave() : setIsEditMode(true))}
-          className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
-          aria-label={isEditMode ? 'Save' : 'Edit'}
-        >
-          <Edit2 className="w-4 h-4 text-cyan-400" />
-        </motion.button>
+        <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+          Hồ sơ chuyên môn
+        </CardTitle>
+        {!isEditMode && (
+          <motion.button
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setIsEditMode(true)}
+            className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 transition-colors"
+            aria-label="Edit"
+          >
+            <Edit2 className="w-4 h-4 text-cyan-400" />
+          </motion.button>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-6">
-        {/* Tab Navigation - Responsive */}
+        {/* Tab Navigation */}
         <div className="flex flex-wrap gap-2 -mx-1">
           {tabs.map(({ id, label, icon: TabIcon }) => (
             <motion.button
@@ -281,21 +277,25 @@ export default function CareerProfileCard({
               exit={{ opacity: 0, y: -10 }}
               className="space-y-3"
             >
-              <h3 className="text-xs sm:text-sm font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+              <h3
+                className="text-xs sm:text-sm font-semibold text-white"
+                style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+              >
                 Mục tiêu nghề nghiệp
               </h3>
               {isEditMode ? (
                 <textarea
                   value={editData.objective}
-                  onChange={(e) =>
-                    setEditData({ ...editData, objective: e.target.value })
-                  }
+                  onChange={(e) => handleObjectiveChange(e.target.value)}
                   rows={4}
                   className="w-full bg-slate-700 border-slate-600 text-white placeholder-gray-500 rounded-lg p-3 border text-xs sm:text-sm"
                   placeholder="Nhập mục tiêu nghề nghiệp của bạn..."
                 />
               ) : (
-                <p className="text-gray-300 text-xs sm:text-sm leading-relaxed" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                <p
+                  className="text-gray-300 text-xs sm:text-sm leading-relaxed"
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
                   {editData.objective || 'Chưa cập nhật'}
                 </p>
               )}
@@ -323,17 +323,13 @@ export default function CareerProfileCard({
                       className="p-2 sm:p-4 rounded-lg bg-slate-800/50 border border-slate-700"
                     >
                       {editingExperienceId === exp.id ? (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="space-y-3"
-                        >
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                           <Input
                             placeholder="Vị trí"
                             value={tempExperience?.position || exp.position}
                             onChange={(e) =>
                               setTempExperience({
-                                ...tempExperience || exp,
+                                ...(tempExperience || exp),
                                 position: e.target.value,
                               })
                             }
@@ -344,7 +340,7 @@ export default function CareerProfileCard({
                             value={tempExperience?.company || exp.company}
                             onChange={(e) =>
                               setTempExperience({
-                                ...tempExperience || exp,
+                                ...(tempExperience || exp),
                                 company: e.target.value,
                               })
                             }
@@ -356,7 +352,7 @@ export default function CareerProfileCard({
                               value={tempExperience?.startDate || exp.startDate}
                               onChange={(e) =>
                                 setTempExperience({
-                                  ...tempExperience || exp,
+                                  ...(tempExperience || exp),
                                   startDate: e.target.value,
                                 })
                               }
@@ -367,7 +363,7 @@ export default function CareerProfileCard({
                               value={tempExperience?.endDate || exp.endDate}
                               onChange={(e) =>
                                 setTempExperience({
-                                  ...tempExperience || exp,
+                                  ...(tempExperience || exp),
                                   endDate: e.target.value,
                                 })
                               }
@@ -379,7 +375,7 @@ export default function CareerProfileCard({
                             value={tempExperience?.description || exp.description}
                             onChange={(e) =>
                               setTempExperience({
-                                ...tempExperience || exp,
+                                ...(tempExperience || exp),
                                 description: e.target.value,
                               })
                             }
@@ -392,7 +388,7 @@ export default function CareerProfileCard({
                               checked={tempExperience?.isCurrent ?? exp.isCurrent}
                               onChange={(e) =>
                                 setTempExperience({
-                                  ...tempExperience || exp,
+                                  ...(tempExperience || exp),
                                   isCurrent: e.target.checked,
                                 })
                               }
@@ -412,10 +408,18 @@ export default function CareerProfileCard({
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="min-w-0 flex-1">
-                              <h4 className="text-xs sm:text-base font-semibold text-white wrap-break-word" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                              <h4
+                                className="text-xs sm:text-base font-semibold text-white break-words"
+                                style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                              >
                                 {exp.position}
                               </h4>
-                              <p className="text-cyan-400 text-xs sm:text-sm wrap-break-word" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>{exp.company}</p>
+                              <p
+                                className="text-cyan-400 text-xs sm:text-sm break-words"
+                                style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                              >
+                                {exp.company}
+                              </p>
                             </div>
                             {isEditMode && (
                               <div className="flex gap-1 shrink-0">
@@ -440,11 +444,18 @@ export default function CareerProfileCard({
                               </div>
                             )}
                           </div>
-                          <p className="text-gray-400 text-xs mb-2" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                            {exp.startDate} -{' '}
-                            {exp.endDate || (exp.isCurrent ? 'Hiện tại' : 'N/A')}
+                          <p
+                            className="text-gray-400 text-xs mb-2"
+                            style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                          >
+                            {exp.startDate} - {exp.endDate || (exp.isCurrent ? 'Hiện tại' : 'N/A')}
                           </p>
-                          <p className="text-gray-300 text-xs sm:text-sm line-clamp-2 sm:line-clamp-none" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>{exp.description}</p>
+                          <p
+                            className="text-gray-300 text-xs sm:text-sm line-clamp-2 sm:line-clamp-none"
+                            style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                          >
+                            {exp.description}
+                          </p>
                         </div>
                       )}
                     </motion.div>
@@ -458,27 +469,19 @@ export default function CareerProfileCard({
                   animate={{ opacity: 1 }}
                   className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3"
                 >
-                  <p className="text-xs text-gray-400" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>Thêm kinh nghiệm</p>
+                  <p className="text-xs text-gray-400" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                    Thêm kinh nghiệm
+                  </p>
                   <Input
                     placeholder="Vị trí"
                     value={newExperience.position || ''}
-                    onChange={(e) =>
-                      setNewExperience({
-                        ...newExperience,
-                        position: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewExperience({ ...newExperience, position: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <Input
                     placeholder="Công ty"
                     value={newExperience.company || ''}
-                    onChange={(e) =>
-                      setNewExperience({
-                        ...newExperience,
-                        company: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewExperience({ ...newExperience, company: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <div className="flex gap-2">
@@ -486,36 +489,21 @@ export default function CareerProfileCard({
                       type="month"
                       placeholder="Bắt đầu"
                       value={newExperience.startDate || ''}
-                      onChange={(e) =>
-                        setNewExperience({
-                          ...newExperience,
-                          startDate: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setNewExperience({ ...newExperience, startDate: e.target.value })}
                       className="bg-slate-700 border-slate-600 text-white text-sm flex-1"
                     />
                     <Input
                       type="month"
                       placeholder="Kết thúc"
                       value={newExperience.endDate || ''}
-                      onChange={(e) =>
-                        setNewExperience({
-                          ...newExperience,
-                          endDate: e.target.value,
-                        })
-                      }
+                      onChange={(e) => setNewExperience({ ...newExperience, endDate: e.target.value })}
                       className="bg-slate-700 border-slate-600 text-white text-sm flex-1"
                     />
                   </div>
                   <textarea
                     placeholder="Mô tả"
                     value={newExperience.description || ''}
-                    onChange={(e) =>
-                      setNewExperience({
-                        ...newExperience,
-                        description: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewExperience({ ...newExperience, description: e.target.value })}
                     rows={2}
                     className="w-full bg-slate-700 border-slate-600 text-white placeholder-gray-500 rounded border p-2 text-sm"
                   />
@@ -551,18 +539,15 @@ export default function CareerProfileCard({
                       animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.8 }}
                       transition={{ delay: idx * 0.05 }}
-                      className={`flex items-center gap-2 px-3 py-1 rounded-full text-white text-sm font-medium ${
+                      className={`flex items-center gap-2 px-3 py-1 sm:px-4 sm:py-2 rounded-full text-white text-xs sm:text-sm font-medium ${
                         skillLevelColors[skill.level]
                       }`}
                       style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                     >
                       {skill.name}
+                      <span className="text-xs opacity-75">({skillLevels[skill.level]})</span>
                       {isEditMode && (
-                        <motion.button
-                          whileHover={{ scale: 1.2 }}
-                          onClick={() => handleRemoveSkill(skill.id)}
-                          className="ml-1"
-                        >
+                        <motion.button whileHover={{ scale: 1.2 }} onClick={() => handleRemoveSkill(skill.id)}>
                           <X className="w-3 h-3" />
                         </motion.button>
                       )}
@@ -577,23 +562,18 @@ export default function CareerProfileCard({
                   animate={{ opacity: 1 }}
                   className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3"
                 >
-                  <p className="text-xs text-gray-400" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>Thêm kỹ năng</p>
+                  <p className="text-xs text-gray-400" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                    Thêm kỹ năng
+                  </p>
                   <Input
                     placeholder="Tên kỹ năng"
                     value={newSkill.name || ''}
-                    onChange={(e) =>
-                      setNewSkill({ ...newSkill, name: e.target.value })
-                    }
+                    onChange={(e) => setNewSkill({ ...newSkill, name: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <select
                     value={newSkill.level || 'intermediate'}
-                    onChange={(e) =>
-                      setNewSkill({
-                        ...newSkill,
-                        level: e.target.value as Skill['level'],
-                      })
-                    }
+                    onChange={(e) => setNewSkill({ ...newSkill, level: e.target.value as Skill['level'] })}
                     className="w-full bg-slate-700 border border-slate-600 text-white rounded p-2 text-sm"
                   >
                     {Object.entries(skillLevels).map(([value, label]) => (
@@ -637,17 +617,13 @@ export default function CareerProfileCard({
                       className="p-2 sm:p-4 rounded-lg bg-slate-800/50 border border-slate-700"
                     >
                       {editingEducationId === edu.id ? (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="space-y-3"
-                        >
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
                           <Input
                             placeholder="Trường học"
                             value={tempEducation?.school || edu.school}
                             onChange={(e) =>
                               setTempEducation({
-                                ...tempEducation || edu,
+                                ...(tempEducation || edu),
                                 school: e.target.value,
                               })
                             }
@@ -658,7 +634,7 @@ export default function CareerProfileCard({
                             value={tempEducation?.degree || edu.degree}
                             onChange={(e) =>
                               setTempEducation({
-                                ...tempEducation || edu,
+                                ...(tempEducation || edu),
                                 degree: e.target.value,
                               })
                             }
@@ -669,7 +645,7 @@ export default function CareerProfileCard({
                             value={tempEducation?.field || edu.field}
                             onChange={(e) =>
                               setTempEducation({
-                                ...tempEducation || edu,
+                                ...(tempEducation || edu),
                                 field: e.target.value,
                               })
                             }
@@ -681,7 +657,7 @@ export default function CareerProfileCard({
                             value={tempEducation?.graduationYear || edu.graduationYear}
                             onChange={(e) =>
                               setTempEducation({
-                                ...tempEducation || edu,
+                                ...(tempEducation || edu),
                                 graduationYear: e.target.value,
                               })
                             }
@@ -699,10 +675,18 @@ export default function CareerProfileCard({
                         <div>
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="min-w-0 flex-1">
-                              <h4 className="text-xs sm:text-base font-semibold text-white wrap-break-word" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                              <h4
+                                className="text-xs sm:text-base font-semibold text-white break-words"
+                                style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                              >
                                 {edu.school}
                               </h4>
-                              <p className="text-cyan-400 text-xs sm:text-sm wrap-break-word" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>{edu.degree}</p>
+                              <p
+                                className="text-cyan-400 text-xs sm:text-sm break-words"
+                                style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                              >
+                                {edu.degree}
+                              </p>
                             </div>
                             {isEditMode && (
                               <div className="flex gap-1 shrink-0">
@@ -727,7 +711,10 @@ export default function CareerProfileCard({
                               </div>
                             )}
                           </div>
-                          <p className="text-gray-400 text-xs mb-1" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                          <p
+                            className="text-gray-400 text-xs mb-1"
+                            style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                          >
                             {edu.field} • {edu.graduationYear}
                           </p>
                         </div>
@@ -743,50 +730,32 @@ export default function CareerProfileCard({
                   animate={{ opacity: 1 }}
                   className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 space-y-3"
                 >
-                  <p className="text-xs text-gray-400" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>Thêm học vấn</p>
+                  <p className="text-xs text-gray-400" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                    Thêm học vấn
+                  </p>
                   <Input
                     placeholder="Trường học"
                     value={newEducation.school || ''}
-                    onChange={(e) =>
-                      setNewEducation({
-                        ...newEducation,
-                        school: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewEducation({ ...newEducation, school: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <Input
                     placeholder="Bằng cấp (e.g., Cử nhân, Thạc sĩ)"
                     value={newEducation.degree || ''}
-                    onChange={(e) =>
-                      setNewEducation({
-                        ...newEducation,
-                        degree: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewEducation({ ...newEducation, degree: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <Input
                     placeholder="Chuyên ngành"
                     value={newEducation.field || ''}
-                    onChange={(e) =>
-                      setNewEducation({
-                        ...newEducation,
-                        field: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewEducation({ ...newEducation, field: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <Input
                     type="number"
                     placeholder="Năm tốt nghiệp"
                     value={newEducation.graduationYear || ''}
-                    onChange={(e) =>
-                      setNewEducation({
-                        ...newEducation,
-                        graduationYear: e.target.value,
-                      })
-                    }
+                    onChange={(e) => setNewEducation({ ...newEducation, graduationYear: e.target.value })}
                     className="bg-slate-700 border-slate-600 text-white placeholder-gray-500 text-sm"
                   />
                   <Button
@@ -819,10 +788,7 @@ export default function CareerProfileCard({
               Lưu thay đổi
             </Button>
             <Button
-              onClick={() => {
-                setIsEditMode(false);
-                setEditData(data);
-              }}
+              onClick={handleCancel}
               variant="outline"
               className="flex-1 border-slate-600 hover:bg-slate-700"
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}

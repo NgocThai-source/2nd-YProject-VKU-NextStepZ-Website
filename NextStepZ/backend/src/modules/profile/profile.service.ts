@@ -80,6 +80,20 @@ export class ProfileService {
           },
         },
         publicProfile: true,
+        careerProfile: {
+          include: {
+            experiences: {
+              orderBy: {
+                startDate: 'desc',
+              },
+            },
+            education: {
+              orderBy: {
+                createdAt: 'desc',
+              },
+            },
+          },
+        },
       },
     });
 
@@ -103,6 +117,20 @@ export class ProfileService {
             id: true,
             username: true,
             role: true,
+          },
+        },
+        careerProfile: {
+          include: {
+            experiences: {
+              orderBy: {
+                startDate: 'desc',
+              },
+            },
+            education: {
+              orderBy: {
+                createdAt: 'desc',
+              },
+            },
           },
         },
       },
@@ -150,8 +178,7 @@ export class ProfileService {
         major: (updateProfileDto.major || profile.major) as string | null,
         title: (updateProfileDto.title || profile.title) as string | null,
         skills: updateProfileDto.skills || profile.skills,
-        experience: updateProfileDto.experience || profile.experience,
-        education: updateProfileDto.education || profile.education,
+        objective: updateProfileDto.objective || profile.objective,
         socialLinks: updateProfileDto.socialLinks || profile.socialLinks,
       },
       include: {
@@ -212,6 +239,25 @@ export class ProfileService {
                 role: true,
               },
             },
+            employerProfile: {
+              include: {
+                jobPostings: true,
+              },
+            },
+            careerProfile: {
+              include: {
+                experiences: {
+                  orderBy: {
+                    startDate: 'desc',
+                  },
+                },
+                education: {
+                  orderBy: {
+                    createdAt: 'desc',
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -269,6 +315,25 @@ export class ProfileService {
                 id: true,
                 username: true,
                 role: true,
+              },
+            },
+            employerProfile: {
+              include: {
+                jobPostings: true,
+              },
+            },
+            careerProfile: {
+              include: {
+                experiences: {
+                  orderBy: {
+                    startDate: 'desc',
+                  },
+                },
+                education: {
+                  orderBy: {
+                    createdAt: 'desc',
+                  },
+                },
               },
             },
           },

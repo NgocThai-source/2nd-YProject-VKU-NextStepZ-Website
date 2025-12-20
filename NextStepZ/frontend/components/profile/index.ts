@@ -2,12 +2,9 @@
 export {
   UserInfoCard,
   PersonalInfoCard,
-  CareerProfileCard,
   RecentActivityCard,
   EditUserInfoDialog,
   EditPersonalInfoDialog,
-  ProfileCompletionStatus,
-  type CareerProfileData,
   type PersonalInfo,
 } from './user';
 

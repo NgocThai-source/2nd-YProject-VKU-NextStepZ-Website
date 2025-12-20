@@ -17,7 +17,7 @@ import { Input } from '@/components/ui/input';
 const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=User';
 
 // Helper function to validate URL
-const isValidUrl = (url: string): boolean => {
+const isValidUrl = (url?: string): boolean => {
   if (!url || typeof url !== 'string') return false;
   try {
     new URL(url);
@@ -29,7 +29,7 @@ const isValidUrl = (url: string): boolean => {
 
 // Helper function to get safe avatar URL
 const getSafeAvatarUrl = (url?: string): string => {
-  if (isValidUrl(url)) return url;
+  if (url && isValidUrl(url)) return url;
   return DEFAULT_AVATAR;
 };
 
@@ -106,7 +106,14 @@ export default function EditUserInfoDialog({
   };
 
   const handleReset = () => {
-    setFormData(data);
+    if (data) {
+      setFormData({
+        avatar: getSafeAvatarUrl(data.avatar),
+        name: data.name || 'Nguyễn Văn A',
+        email: data.email || 'user@example.com',
+        bio: data.bio || '',
+      });
+    }
   };
 
   return (

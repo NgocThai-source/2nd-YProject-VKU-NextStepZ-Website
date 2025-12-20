@@ -17,6 +17,19 @@ export interface SavedPost {
   savedAt: string;
 }
 
+export interface SavedJob {
+  id: string;
+  jobId: string;
+  jobTitle: string;
+  companyName: string;
+  companyLogo: string;
+  location: string;
+  description: string;
+  salary?: [number, number];
+  category?: string;
+  savedAt: string;
+}
+
 interface SavedItemsContextType {
   // Saved Companies
   savedCompanies: SavedCompany[];

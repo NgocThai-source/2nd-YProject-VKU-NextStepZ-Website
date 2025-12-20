@@ -81,11 +81,7 @@ export class UpdateProfileDto {
 
   @IsOptional()
   @IsString()
-  experience?: string;
-
-  @IsOptional()
-  @IsString()
-  education?: string;
+  objective?: string;
 
   @IsOptional()
   @IsObject()

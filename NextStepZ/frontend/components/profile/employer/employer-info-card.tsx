@@ -12,7 +12,7 @@ import ShareEmployerPublicProfileDialog from './share-employer-public-profile-di
 const DEFAULT_LOGO = 'https://api.dicebear.com/7.x/avataaars/svg?seed=Company';
 
 // Helper function to validate URL
-const isValidUrl = (url: string): boolean => {
+const isValidUrl = (url?: string | null): boolean => {
   if (!url || typeof url !== 'string') return false;
   try {
     new URL(url);
@@ -23,8 +23,8 @@ const isValidUrl = (url: string): boolean => {
 };
 
 // Helper function to get safe logo URL
-const getSafeLogoUrl = (url?: string): string => {
-  if (isValidUrl(url)) return url;
+const getSafeLogoUrl = (url?: string | null): string => {
+  if (url && isValidUrl(url)) return url;
   return DEFAULT_LOGO;
 };
 

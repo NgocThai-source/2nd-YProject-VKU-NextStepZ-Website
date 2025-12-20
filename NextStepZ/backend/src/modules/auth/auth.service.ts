@@ -75,8 +75,9 @@ export class AuthService {
     });
 
     // Create profile for the user
+    let profile;
     try {
-      await this.prisma.profile.create({
+      profile = await this.prisma.profile.create({
         data: {
           userId: user.id,
           firstName: registerDto.firstName,
@@ -94,6 +95,22 @@ export class AuthService {
     } catch (error) {
       console.error('Failed to create profile:', error);
       // Continue anyway - profile creation failure shouldn't block registration
+    }
+
+    // Create public profile for the user (for sharing)
+    try {
+      if (profile) {
+        await this.prisma.publicProfile.create({
+          data: {
+            userId: user.id,
+            profileId: profile.id,
+            isActive: true,
+          },
+        });
+      }
+    } catch (error) {
+      console.error('Failed to create public profile:', error);
+      // Continue anyway - public profile creation failure shouldn't block registration
     }
 
     // Generate JWT token

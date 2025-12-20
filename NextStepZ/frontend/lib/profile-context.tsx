@@ -48,39 +48,6 @@ export interface UserProfile {
   phoneNumber?: string;
 }
 
-export interface WorkExperience {
-  id: string;
-  position: string;
-  company: string;
-  startDate: string;
-  endDate: string;
-  description: string;
-  isCurrent: boolean;
-}
-
-export interface Skill {
-  id: string;
-  name: string;
-  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
-}
-
-export interface Education {
-  id: string;
-  school: string;
-  degree: string;
-  field: string;
-  graduationYear: string;
-}
-
-export interface CareerProfileData {
-  id?: string;
-  userId?: string;
-  objective: string;
-  experiences: WorkExperience[];
-  skills: Skill[];
-  education: Education[];
-}
-
 export interface JobPosting {
   id: string;
   title: string;
@@ -120,8 +87,7 @@ export interface PublicProfile {
     bio?: string;
     title?: string;
     skills?: string[];
-    experience?: string;
-    education?: string;
+    objective?: string;
     socialLinks?: Array<{
       id: string;
       platform: string;
@@ -137,47 +103,15 @@ export interface PublicProfile {
 
 export interface ProfileContextType {
   userProfile: UserProfile | null;
-  careerProfile: CareerProfileData | null;
   employerProfile: EmployerProfileData | null;
   publicProfile: PublicProfile | null;
   isLoading: boolean;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
-  updateCareerProfile: (profile: CareerProfileData) => void;
   updateEmployerProfile: (profile: Partial<EmployerProfileData>) => void;
   loadProfileFromLocalStorage: () => void;
 }
 
 const ProfileContext = createContext<ProfileContextType | undefined>(undefined);
-
-const DEFAULT_USER_PROFILE: UserProfile = {
-  avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
-  name: 'Nguyễn Văn A',
-  email: 'user@example.com',
-  bio: 'Frontend Developer | Creative Designer',
-  phone: '+84 912 345 678',
-  birthDate: '1999-01-15',
-  city: 'Hà Nội',
-  district: 'Hoàn Kiếm',
-  socialLinks: [
-    {
-      id: '1',
-      platform: 'LinkedIn',
-      url: 'https://linkedin.com/in/user',
-    },
-    {
-      id: '2',
-      platform: 'GitHub',
-      url: 'https://github.com/user',
-    },
-  ],
-};
-
-const DEFAULT_CAREER_PROFILE: CareerProfileData = {
-  objective: 'Tìm kiếm vị trí Frontend Developer có kinh nghiệm để phát triển kỹ năng kỹ thuật và đóng góp cho các dự án công nghệ hiện đại.',
-  experiences: [],
-  skills: [],
-  education: [],
-};
 
 const DEFAULT_EMPLOYER_PROFILE: EmployerProfileData = {
   companyName: 'Tech Company Vietnam',
@@ -193,7 +127,6 @@ const DEFAULT_EMPLOYER_PROFILE: EmployerProfileData = {
 export function ProfileProvider({ children }: { children: React.ReactNode }) {
   const { user, getToken } = useAuth();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [careerProfile, setCareerProfile] = useState<CareerProfileData | null>(null);
   const [employerProfile, setEmployerProfile] = useState<EmployerProfileData | null>(null);
   const [publicProfile, setPublicProfile] = useState<PublicProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -243,7 +176,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     if (!user) {
       setIsLoading(false);
       setUserProfile(null);
-      setCareerProfile(null);
       setEmployerProfile(null);
       setPublicProfile(null);
       return;
@@ -271,10 +203,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         };
         setUserProfile(initialUserProfile);
 
-        // Initialize career/employer profile based on role
-        if (user.role === 'user') {
-          setCareerProfile(DEFAULT_CAREER_PROFILE);
-        } else if (user.role === 'employer') {
+        // Initialize employer profile only if user role is 'employer'
+        if (user.role === 'employer') {
           setEmployerProfile({
             companyName: user.companyName || user.firstName || user.name || '',
             industry: '',
@@ -326,12 +256,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           // Keep the initial profile already set
         }
 
-        // Fetch career profile if user role is 'user'
-        if (user.role === 'user') {
-          // Initialize with default for now - backend endpoints will be added later
-          setCareerProfile(DEFAULT_CAREER_PROFILE);
-        }
-
         // Fetch employer profile if user role is 'employer'
         if (user.role === 'employer') {
           // Initialize with default for now - backend endpoints will be added later
@@ -376,7 +300,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           district: '',
           socialLinks: [],
         });
-        setCareerProfile(DEFAULT_CAREER_PROFILE);
         setEmployerProfile(DEFAULT_EMPLOYER_PROFILE);
         setPublicProfile(null);
       } finally {
@@ -385,7 +308,7 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     };
 
     loadProfiles();
-  }, [user?.id, getToken, fetchAndUpdateProfile]);
+  }, [user, user?.id, getToken, fetchAndUpdateProfile]);
 
   // Listen for page visibility change and refetch when user returns
   useEffect(() => {
@@ -428,10 +351,6 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const updateCareerProfile = useCallback((profile: CareerProfileData) => {
-    setCareerProfile(profile);
-  }, []);
-
   const updateEmployerProfile = useCallback((profile: Partial<EmployerProfileData>) => {
     setEmployerProfile((prev) => {
       const updated = { ...prev, ...profile } as EmployerProfileData;
@@ -443,12 +362,10 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     <ProfileContext.Provider
       value={{
         userProfile,
-        careerProfile,
         employerProfile,
         publicProfile,
         isLoading,
         updateUserProfile,
-        updateCareerProfile,
         updateEmployerProfile,
         loadProfileFromLocalStorage,
       }}

@@ -169,7 +169,7 @@ export function CompanyDetailModal({
               {
                 icon: Users,
                 label: 'Followers',
-                value: `${(company.followersCount / 1000).toFixed(1)}K`,
+                value: `${((company.followersCount || 0) / 1000).toFixed(1)}K`,
                 color: 'text-cyan-400',
               },
               {

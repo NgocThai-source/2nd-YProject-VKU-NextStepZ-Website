@@ -79,8 +79,7 @@ model Profile {
   // Professional info
   title       String?  // Job title
   skills      String[] @default([])
-  experience  String?
-  education   String?
+  objective   String?  // Career objective
   
   // Social & Links
   socialLinks Json? // Store as JSON: [{platform: "linkedin", url: "..."}, ...]
@@ -89,10 +88,107 @@ model Profile {
   isPublic    Boolean  @default(false)
   publicProfile PublicProfile?
   
+  // Employer Profile - Only for employers
+  employerProfile EmployerProfile?
+  
+  // Career Profile - For storing career details
+  careerProfile CareerProfile?
+  
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   @@map("profiles")
+}
+
+// Career Profile Model - For detailed career information
+model CareerProfile {
+  id              String   @id @default(cuid())
+  profileId       String   @unique
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  objective       String?  // Career objective (also stored in Profile.objective)
+  experiences     Experience[]
+  education       Education[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("career_profiles")
+}
+
+// Experience Model
+model Experience {
+  id              String   @id @default(cuid())
+  careerProfileId String
+  careerProfile   CareerProfile @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  
+  position        String
+  company         String
+  startDate       String   // Format: YYYY-MM-DD
+  endDate         String?  // Format: YYYY-MM-DD
+  isCurrent       Boolean  @default(false)
+  description     String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("experiences")
+}
+
+// Education Model
+model Education {
+  id              String   @id @default(cuid())
+  careerProfileId String
+  careerProfile   CareerProfile @relation(fields: [careerProfileId], references: [id], onDelete: Cascade)
+  
+  school          String
+  degree          String?
+  field           String?
+  graduationYear  String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("education")
+}
+
+// Employer Profile Model - For employers/recruiters
+model EmployerProfile {
+  id              String   @id @default(cuid())
+  profileId       String   @unique
+  profile         Profile  @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  
+  // Company info
+  industry        String?
+  companySize     String?
+  foundingYear    Int?
+  about           String?
+  website         String?
+  
+  // Job postings
+  jobPostings     JobPosting[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("employer_profiles")
+}
+
+// Job Posting Model
+model JobPosting {
+  id              String   @id @default(cuid())
+  employerProfileId String
+  employerProfile EmployerProfile @relation(fields: [employerProfileId], references: [id], onDelete: Cascade)
+  
+  title           String
+  description     String?
+  location        String?
+  salary          String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("job_postings")
 }
 
 // Public Profile Model - Shareable public profile

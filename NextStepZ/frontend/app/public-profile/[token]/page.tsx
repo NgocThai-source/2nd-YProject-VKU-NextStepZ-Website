@@ -8,27 +8,108 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/components/ui/toast';
+import { SharePublicProfileDialog } from '@/components/profile/user';
+import { ShareEmployerPublicProfileDialog, EmployerJobPostings, EmployerActivity } from '@/components/profile/employer';
+import { useProfileUpdates } from '@/lib/hooks/use-profile-updates';
 import { API_URL } from '@/lib/api';
+
+const skillLevelColors = {
+  beginner: 'bg-blue-500',
+  intermediate: 'bg-cyan-500',
+  advanced: 'bg-purple-500',
+  expert: 'bg-pink-500',
+};
+
+const skillLevels = {
+  beginner: 'Cơ bản',
+  intermediate: 'Trung cấp',
+  advanced: 'Nâng cao',
+  expert: 'Chuyên gia',
+};
+
+const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
+
+const getValidImageUrl = (url: string | null | undefined) => {
+  if (!url) return DEFAULT_AVATAR;
+  try {
+    new URL(url);
+    return url;
+  } catch {
+    return DEFAULT_AVATAR;
+  }
+};
+
+interface Skill {
+  id: string;
+  name: string;
+  level: 'beginner' | 'intermediate' | 'advanced' | 'expert';
+}
+
+interface Experience {
+  id: string;
+  position: string;
+  company: string;
+  startDate: string;
+  endDate?: string;
+  isCurrent?: boolean;
+  description?: string;
+}
+
+interface Education {
+  id: string;
+  school: string;
+  degree?: string;
+  field?: string;
+  graduationYear?: string;
+}
+
+interface CareerProfile {
+  id: string;
+  objective?: string;
+  experiences?: Experience[];
+  education?: Education[];
+  skills?: Skill[];
+}
+
+interface JobPosting {
+  id: string;
+  title: string;
+  description?: string;
+  location?: string;
+  salary?: string;
+  level?: string;
+  postedAt?: string;
+  applications?: number;
+}
+
+interface EmployerProfile {
+  id: string;
+  industry?: string;
+  companySize?: string;
+  foundingYear?: number;
+  about?: string;
+  website?: string;
+  jobPostings?: JobPosting[];
+}
 
 interface PublicProfileData {
   id: string;
-  userId: string;
   shareToken: string;
   isActive: boolean;
   viewCount: number;
   profile: {
     id: string;
-    userId: string;
-    firstName?: string;
-    lastName?: string;
-    email?: string;
-    phone?: string;
-    avatar?: string;
-    bio?: string;
-    title?: string;
-    skills?: string[];
+    firstName: string | null;
+    lastName: string | null;
+    email: string | null;
+    phone: string | null;
+    avatar: string | null;
+    bio: string | null;
+    title: string | null;
+    objective?: string;
     experience?: string;
     education?: string;
+    skills?: Skill[];
     socialLinks?: Array<{
       id: string;
       platform: string;
@@ -39,34 +120,37 @@ interface PublicProfileData {
       username: string;
       role: string;
     };
+    careerProfile?: CareerProfile;
+    employerProfile?: EmployerProfile;
   };
 }
 
 export default function PublicProfileTokenPage() {
   const params = useParams();
-  const token = params.token as string;
+  const token = params?.token as string;
   const { addToast } = useToast();
+
   const [publicProfile, setPublicProfile] = useState<PublicProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isFriendRequested, setIsFriendRequested] = useState(false);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
 
-  // Fetch public profile by token
+  // Load initial profile
   useEffect(() => {
     const loadPublicProfile = async () => {
       try {
         setIsLoading(true);
         setError(null);
-
         const response = await fetch(`${API_URL}/profiles/public/share/${token}`);
 
         if (!response.ok) {
           if (response.status === 404) {
-            setError('Hồ sơ công khai không tồn tại');
+            setError('Hồ sơ không tồn tại');
           } else if (response.status === 400) {
-            setError('Hồ sơ công khai này không còn khả dụng');
+            setError('Hồ sơ không còn khả dụng');
           } else {
-            setError('Không thể tải hồ sơ công khai');
+            setError('Không thể tải hồ sơ');
           }
           return;
         }
@@ -74,8 +158,8 @@ export default function PublicProfileTokenPage() {
         const data = await response.json();
         setPublicProfile(data);
       } catch (err) {
-        console.error('Failed to load public profile:', err);
-        setError('Có lỗi khi tải hồ sơ công khai');
+        setError('Lỗi kết nối. Vui lòng thử lại.');
+        console.error('Error loading public profile:', err);
       } finally {
         setIsLoading(false);
       }
@@ -85,6 +169,42 @@ export default function PublicProfileTokenPage() {
       loadPublicProfile();
     }
   }, [token]);
+
+  // Setup real-time updates listener
+  useProfileUpdates(
+    token,
+    (updatedData: unknown) => {
+      if (!updatedData || typeof updatedData !== 'object') return;
+      
+      const data = updatedData as PublicProfileData;
+      // Deep merge để cập nhật chỉ những phần thay đổi
+      setPublicProfile((prevProfile) => {
+        if (!prevProfile) return data;
+
+        // Merge updated profile data
+        return {
+          ...prevProfile,
+          ...data,
+          profile: {
+            ...prevProfile.profile,
+            ...data.profile,
+            // Merge nested fields
+            careerProfile: data.profile?.careerProfile || prevProfile.profile?.careerProfile,
+            employerProfile: data.profile?.employerProfile || prevProfile.profile?.employerProfile,
+            socialLinks: data.profile?.socialLinks || prevProfile.profile?.socialLinks,
+          },
+        };
+      });
+    },
+    (error) => {
+      // Silently handle polling errors - don't show to user
+      console.warn('Profile update polling error:', error);
+    }
+  );
+
+  const handleShare = () => {
+    setIsShareDialogOpen(true);
+  };
 
   const handleAddFriend = () => {
     if (isFriendRequested) {
@@ -102,9 +222,8 @@ export default function PublicProfileTokenPage() {
 
   const handleReport = () => {
     addToast('Báo cáo hồ sơ đã được gửi. Cảm ơn bạn!', 'warning');
-  };
+  }
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center">
@@ -113,31 +232,16 @@ export default function PublicProfileTokenPage() {
     );
   }
 
-  // Error state
-  if (error) {
+  if (error || !publicProfile) {
     return (
       <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Lỗi tải hồ sơ</h2>
-          <p className="text-gray-400 mb-6">{error}</p>
-          <Link
-            href="/"
-            className="inline-block px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
-          >
-            Quay lại trang chủ
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  // Data not found
-  if (!publicProfile) {
-    return (
-      <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-800 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-white mb-4">Không tìm thấy hồ sơ</h2>
-          <p className="text-gray-400 mb-6">Hồ sơ bạn tìm kiếm không tồn tại hoặc đã bị xóa</p>
+          <h2 className="text-2xl font-bold text-white mb-4">
+            {error || 'Không tìm thấy hồ sơ'}
+          </h2>
+          <p className="text-gray-400 mb-6">
+            {error ? error : 'Hồ sơ bạn tìm kiếm không tồn tại hoặc đã bị xóa'}
+          </p>
           <Link
             href="/"
             className="inline-block px-6 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors"
@@ -150,9 +254,13 @@ export default function PublicProfileTokenPage() {
   }
 
   const profile = publicProfile.profile;
-  const fullName = profile.firstName && profile.lastName 
-    ? `${profile.firstName} ${profile.lastName}` 
-    : profile.user?.username || 'Người dùng ẩn danh';
+  const user = profile.user;
+  const isEmployer = user?.role === 'employer';
+  const careerProfile = profile.careerProfile;
+  const employerProfile = profile.employerProfile;
+  const fullName = profile.firstName && profile.lastName
+    ? `${profile.firstName} ${profile.lastName}`
+    : user?.username || 'Người dùng ẩn danh';
 
   return (
     <div className="min-h-screen bg-linear-to-br from-slate-950 via-slate-900 to-slate-800">
@@ -167,6 +275,7 @@ export default function PublicProfileTokenPage() {
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
+              onClick={handleShare}
               className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors text-cyan-400"
               title="Chia sẻ hồ sơ"
             >
@@ -176,140 +285,509 @@ export default function PublicProfileTokenPage() {
         </div>
       </header>
 
+      {/* Share Dialog */}
+      {isEmployer ? (
+        <ShareEmployerPublicProfileDialog
+          isOpen={isShareDialogOpen}
+          onClose={() => setIsShareDialogOpen(false)}
+          employerProfile={{
+            companyName: fullName,
+            email: profile.email || '',
+          }}
+        />
+      ) : (
+        <SharePublicProfileDialog
+          isOpen={isShareDialogOpen}
+          onClose={() => setIsShareDialogOpen(false)}
+          userProfile={
+            profile ? {
+              id: profile.id,
+              firstName: profile.firstName || '',
+              lastName: profile.lastName || '',
+              email: profile.email || '',
+              phone: profile.phone || '',
+              avatar: profile.avatar || '',
+              bio: profile.bio || '',
+              name: fullName,
+            } : undefined
+          }
+          publicProfile={{
+            id: publicProfile.id,
+            shareToken: publicProfile.shareToken,
+            isActive: publicProfile.isActive,
+            viewCount: publicProfile.viewCount,
+          }}
+        />
+      )}
+
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.3 }}
-          className="grid grid-cols-1 lg:grid-cols-4 gap-8"
-        >
-          {/* Left Sidebar */}
+        {isEmployer && employerProfile ? (
+          // ========== EMPLOYER PUBLIC PROFILE ==========
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="lg:col-span-1"
+            className="grid grid-cols-1 lg:grid-cols-4 gap-8"
           >
-            <div className="sticky top-24 space-y-6">
-              {/* Avatar & Name */}
+            {/* Left Sidebar */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:col-span-1"
+            >
+              <div className="sticky top-24 space-y-6">
+                {/* Logo & Company Name */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="relative w-32 h-32 rounded-2xl overflow-hidden border-2 border-amber-400/50 shadow-xl">
+                        <Image
+                          src={getValidImageUrl(profile.avatar)}
+                          alt={fullName}
+                          fill
+                          className="object-cover"
+                          priority
+                        />
+                      </div>
+                      <div className="text-center">
+                        <h1 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                          {fullName}
+                        </h1>
+                        <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                          Nhà tuyển dụng
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Action Buttons */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardContent className="p-6 space-y-3">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleAddFriend}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${
+                        isFriendRequested
+                          ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
+                          : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
+                      }`}
+                      style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                    >
+                      {isFriendRequested ? (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Hủy theo dõi
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Theo dõi
+                        </>
+                      )}
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleMessage}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/50 hover:border-blue-400 text-blue-400 transition-all"
+                      style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Nhắn tin
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleReport}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/50 hover:border-red-400 text-red-400 transition-all"
+                      style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                    >
+                      <Flag className="w-4 h-4" />
+                      Báo cáo
+                    </motion.button>
+                  </CardContent>
+                </Card>
+
+                {/* Contact Info */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardContent className="p-6 space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Email
+                      </p>
+                      <a
+                        href={`mailto:${profile.email}`}
+                        className="text-sm text-amber-400 hover:text-amber-300 break-all"
+                        style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                      >
+                        {profile.email}
+                      </a>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Số điện thoại
+                      </p>
+                      <a
+                        href={`tel:${profile.phone}`}
+                        className="text-sm text-amber-400 hover:text-amber-300"
+                        style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                      >
+                        {profile.phone}
+                      </a>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Địa chỉ trụ sở
+                      </p>
+                      <p className="text-sm text-gray-300" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        {employerProfile.website || 'Chưa cập nhật'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
+
+            {/* Main Content */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:col-span-2 space-y-6"
+            >
+              {/* About Section */}
+              {employerProfile.about && (
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                      Giới thiệu công ty
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="text-sm text-gray-300 leading-relaxed" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                      {employerProfile.about}
+                    </p>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Company Info */}
               <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardContent className="p-6 space-y-4">
-                  <div className="flex flex-col items-center text-center">
-                    {profile.avatar && (
-                      <Image
-                        src={profile.avatar}
-                        alt={fullName}
-                        width={120}
-                        height={120}
-                        className="w-24 h-24 rounded-full border-2 border-cyan-500 object-cover mb-4"
-                      />
-                    )}
-                    <h2 className="text-xl font-bold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                      {fullName}
-                    </h2>
-                    {profile.title && (
-                      <p className="text-cyan-400 text-sm mt-1">{profile.title}</p>
-                    )}
-                    {profile.bio && (
-                      <p className="text-gray-400 text-sm mt-2 line-clamp-3">{profile.bio}</p>
-                    )}
+                <CardHeader>
+                  <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                    Thông tin công ty
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Lĩnh vực hoạt động
+                      </p>
+                      <p className="text-sm font-semibold text-white" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        {employerProfile.industry || 'Chưa cập nhật'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Quy mô công ty
+                      </p>
+                      <p className="text-sm font-semibold text-white" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        {employerProfile.companySize || 'Chưa cập nhật'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Năm thành lập
+                      </p>
+                      <p className="text-sm font-semibold text-white" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        {employerProfile.foundingYear || 'Chưa cập nhật'}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Website công ty
+                      </p>
+                      <a
+                        href={employerProfile.website || '#'}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm text-amber-400 hover:text-amber-300"
+                        style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                      >
+                        {employerProfile.website || 'Chưa cập nhật'}
+                      </a>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
 
-              {/* Action Buttons */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardContent className="p-6 space-y-3">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleAddFriend}
-                    className="w-full px-4 py-2 bg-cyan-600 hover:bg-cyan-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
-                  >
-                    <UserPlus className="w-4 h-4" />
-                    {isFriendRequested ? 'Hủy lời mời' : 'Kết bạn'}
-                  </motion.button>
+              {/* Job Postings */}
+              {employerProfile.jobPostings && employerProfile.jobPostings.length > 0 && (
+                <EmployerJobPostings
+                  postings={employerProfile.jobPostings}
+                  totalPostings={employerProfile.jobPostings.length}
+                  onViewAllClick={() => {}}
+                />
+              )}
 
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleMessage}
-                    className="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
-                  >
-                    <MessageSquare className="w-4 h-4" />
-                    Nhắn tin
-                  </motion.button>
+              {/* Employer Activity */}
+              <EmployerActivity
+                posts={[
+                  {
+                    id: '1',
+                    title: 'Chia sẻ kinh nghiệm tuyển dụng lập trình viên giỏi',
+                    excerpt: 'Sau 5 năm kinh nghiệm tuyển dụng, tôi muốn chia sẻ những mẹo hiệu quả...',
+                    category: 'Chia sẻ kinh nghiệm',
+                    postDate: '3 ngày trước',
+                    engagement: {
+                      likes: 125,
+                      comments: 23,
+                      shares: 8,
+                    },
+                  },
+                ]}
+                totalPosts={1}
+                onViewAllClick={() => {}}
+              />
+            </motion.div>
 
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    onClick={handleReport}
-                    className="w-full px-4 py-2 bg-red-900/30 hover:bg-red-900/50 text-red-400 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium text-sm"
-                  >
-                    <Flag className="w-4 h-4" />
-                    Báo cáo
-                  </motion.button>
-                </CardContent>
-              </Card>
-
-              {/* Contact Info */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardContent className="p-6 space-y-3">
-                  {profile.email && (
-                    <div className="flex items-start gap-3">
-                      <div className="text-gray-400 text-sm font-medium min-w-fit">Email:</div>
-                      <div className="text-cyan-400 text-sm break-all">{profile.email}</div>
+            {/* Right Sidebar */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:col-span-1"
+            >
+              <div className="sticky top-24 space-y-6">
+                {/* Interest Level */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                      Mức độ quan tâm
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Lượt xem trang</span>
+                      <span className="text-amber-400 font-bold">{publicProfile.viewCount}</span>
                     </div>
-                  )}
-                  {profile.phone && (
-                    <div className="flex items-start gap-3">
-                      <div className="text-gray-400 text-sm font-medium min-w-fit">Điện thoại:</div>
-                      <div className="text-cyan-400 text-sm">{profile.phone}</div>
+                  </CardContent>
+                </Card>
+
+                {/* Verification Status */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardHeader>
+                    <CardTitle className="text-white text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                      Trạng thái xác thực
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-amber-400" />
+                      <div className="px-2 py-1 rounded-full text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                        Chưa xác thực
+                      </div>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
           </motion.div>
-
-          {/* Main Content */}
+        ) : (
+          // ========== USER PUBLIC PROFILE ==========
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
-            className="lg:col-span-2 space-y-6"
+            className="grid grid-cols-1 lg:grid-cols-4 gap-8"
           >
-            {/* Bio Section */}
-            {profile.bio && (
+            {/* Left Sidebar */}
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:col-span-1"
+            >
+              <div className="sticky top-24 space-y-6">
+                {/* Avatar & Name */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardContent className="p-6 space-y-4">
+                    <div className="flex flex-col items-center space-y-4">
+                      <div className="relative w-32 h-32 rounded-xl overflow-hidden border-2 border-cyan-400/50 shadow-xl">
+                        <Image
+                          src={getValidImageUrl(profile.avatar)}
+                          alt={fullName}
+                          fill
+                          className="object-cover"
+                          priority
+                        />
+                      </div>
+                      <div className="text-center">
+                        <h1 className="text-2xl font-bold text-white mb-1" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                          {fullName}
+                        </h1>
+                        <p className="text-gray-400 text-sm line-clamp-2" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                          {profile.bio}
+                        </p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Action Buttons */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardContent className="p-6 space-y-3">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleAddFriend}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${
+                        isFriendRequested
+                          ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
+                          : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
+                      }`}
+                      style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                    >
+                      {isFriendRequested ? (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Hủy theo dõi
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus className="w-4 h-4" />
+                          Theo dõi
+                        </>
+                      )}
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleMessage}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-blue-500/20 hover:bg-blue-500/30 border border-blue-400/50 hover:border-blue-400 text-blue-400 transition-all"
+                      style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      Nhắn tin
+                    </motion.button>
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={handleReport}
+                      className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-red-500/20 hover:bg-red-500/30 border border-red-400/50 hover:border-red-400 text-red-400 transition-all"
+                      style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                    >
+                      <Flag className="w-4 h-4" />
+                      Báo cáo
+                    </motion.button>
+                  </CardContent>
+                </Card>
+
+                {/* Contact Info */}
+                <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                  <CardContent className="p-6 space-y-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Email
+                      </p>
+                      <a
+                        href={`mailto:${profile.email}`}
+                        className="text-sm text-cyan-400 hover:text-cyan-300 break-all"
+                        style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                      >
+                        {profile.email}
+                      </a>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                        Số điện thoại
+                      </p>
+                      <p className="text-sm text-cyan-400" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        {profile.phone || 'Chưa cập nhật'}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </motion.div>
+
+            {/* Main Content */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:col-span-2 space-y-6"
+            >
+              {/* Objective */}
               <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                    Giới thiệu
+                    Mục tiêu nghề nghiệp
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-gray-300">{profile.bio}</p>
+                  <p className="text-sm text-gray-300 leading-relaxed" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                    {careerProfile?.objective || 'Chưa cập nhật'}
+                  </p>
                 </CardContent>
               </Card>
-            )}
 
-            {/* Experience Section */}
-            {profile.experience && (
+              {/* Experience */}
               <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
                     Kinh nghiệm làm việc
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-gray-300">
-                  <p className="whitespace-pre-wrap">{profile.experience}</p>
+                <CardContent className="space-y-4">
+                  {careerProfile?.experiences && careerProfile.experiences.length > 0 ? (
+                    careerProfile.experiences.map((exp, idx) => (
+                      <motion.div
+                        key={exp.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors"
+                      >
+                        <div className="flex items-start justify-between gap-4 mb-2">
+                          <div>
+                            <h3 className="font-semibold text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                              {exp.position}
+                            </h3>
+                            <p className="text-cyan-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                              {exp.company}
+                            </p>
+                          </div>
+                          {exp.isCurrent && (
+                            <span className="px-3 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-semibold whitespace-nowrap" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                              Hiện tại
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mb-2" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                          {exp.startDate} - {exp.endDate || (exp.isCurrent ? 'Hiện tại' : 'N/A')}
+                        </p>
+                        {exp.description && (
+                          <p className="text-sm text-gray-300" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                            {exp.description}
+                          </p>
+                        )}
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                      Chưa có kinh nghiệm
+                    </p>
+                  )}
                 </CardContent>
               </Card>
-            )}
 
-            {/* Skills Section */}
-            {profile.skills && profile.skills.length > 0 && (
+              {/* Skills */}
               <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
@@ -317,82 +795,130 @@ export default function PublicProfileTokenPage() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex flex-wrap gap-2">
-                    {profile.skills.map((skill, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-cyan-600/20 border border-cyan-500/50 text-cyan-300 rounded-full text-sm"
-                      >
-                        {skill}
-                      </span>
-                    ))}
-                  </div>
+                  {careerProfile?.skills && careerProfile.skills.length > 0 ? (
+                    <motion.div
+                      className="flex flex-wrap gap-2"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                    >
+                      {careerProfile.skills.map((skill: Skill, idx: number) => (
+                        <motion.div
+                          key={skill.id}
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: idx * 0.05 }}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-full text-white font-semibold ${
+                            skillLevelColors[skill.level as keyof typeof skillLevelColors]
+                          }`}
+                          style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                        >
+                          {skill.name}
+                          <span className="text-xs opacity-75">({skillLevels[skill.level as keyof typeof skillLevels]})</span>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  ) : (
+                    <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                      Chưa có kỹ năng
+                    </p>
+                  )}
                 </CardContent>
               </Card>
-            )}
 
-            {/* Education Section */}
-            {profile.education && (
+              {/* Education */}
               <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                    Giáo dục
+                    Học vấn
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-gray-300">
-                  <p className="whitespace-pre-wrap">{profile.education}</p>
+                <CardContent className="space-y-4">
+                  {careerProfile?.education && careerProfile.education.length > 0 ? (
+                    careerProfile.education.map((edu, idx) => (
+                      <motion.div
+                        key={edu.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: idx * 0.1 }}
+                        className="p-4 rounded-lg bg-slate-800/50 border border-slate-700 hover:border-slate-600 transition-colors"
+                      >
+                        <h3 className="font-semibold text-white mb-1" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                          {edu.school}
+                        </h3>
+                        {edu.degree && (
+                          <p className="text-cyan-400 text-sm mb-2" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                            {edu.degree}
+                          </p>
+                        )}
+                        <p className="text-sm text-gray-300" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                          {edu.field} • {edu.graduationYear}
+                        </p>
+                      </motion.div>
+                    ))
+                  ) : (
+                    <p className="text-gray-400 text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                      Chưa có học vấn
+                    </p>
+                  )}
                 </CardContent>
               </Card>
-            )}
-          </motion.div>
+            </motion.div>
 
-          {/* Right Sidebar */}
-          <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.3 }}
-            className="lg:col-span-1"
-          >
-            <div className="sticky top-24 space-y-6">
-              {/* Social Links */}
-              {profile.socialLinks && profile.socialLinks.length > 0 && (
+            {/* Right Sidebar */}
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3 }}
+              className="lg:col-span-1"
+            >
+              <div className="sticky top-24 space-y-6">
+                {/* Social Links */}
+                {profile.socialLinks && profile.socialLinks.length > 0 && (
+                  <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
+                    <CardHeader>
+                      <CardTitle className="text-white text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                        Liên kết xã hội
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      {profile.socialLinks.map((link) => (
+                        <a
+                          key={link.id}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-2 rounded-lg bg-slate-800 hover:bg-slate-700 transition-colors"
+                        >
+                          <p className="text-xs text-gray-400 mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                            {link.platform}
+                          </p>
+                          <p className="text-sm text-cyan-400 truncate" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                            {link.url}
+                          </p>
+                        </a>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Profile Stats */}
                 <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
                   <CardHeader>
-                    <CardTitle className="text-white" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                      Liên kết xã hội
+                    <CardTitle className="text-white text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                      Mức độ quan tâm
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-2">
-                    {profile.socialLinks.map((link) => (
-                      <a
-                        key={link.id}
-                        href={link.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="block p-2 bg-slate-800/50 hover:bg-slate-700 rounded-lg text-cyan-400 hover:text-cyan-300 transition-colors text-sm truncate"
-                      >
-                        {link.platform}
-                      </a>
-                    ))}
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Lượt xem trang</span>
+                      <span className="text-cyan-400 font-bold">{publicProfile.viewCount}</span>
+                    </div>
                   </CardContent>
                 </Card>
-              )}
-
-              {/* View Count */}
-              <Card className="bg-linear-to-br from-slate-900 to-slate-800 border-slate-700">
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-cyan-400" />
-                    <div>
-                      <p className="text-gray-400 text-sm">Lượt xem</p>
-                      <p className="text-2xl font-bold text-white">{publicProfile.viewCount}</p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            </div>
+              </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
+        )}
       </main>
     </div>
   );

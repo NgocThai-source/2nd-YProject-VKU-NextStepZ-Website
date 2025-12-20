@@ -17,12 +17,21 @@ interface SharePublicProfileDialogProps {
   isOpen: boolean;
   onClose: () => void;
   userProfile?: {
+    id?: string;
     name?: string;
+    firstName?: string;
+    lastName?: string;
+    email?: string;
+    phone?: string;
+    avatar?: string;
     bio?: string;
   };
   shareUrl?: string;
   publicProfile?: {
+    id?: string;
     shareToken?: string;
+    isActive?: boolean;
+    viewCount?: number;
   };
 }
 

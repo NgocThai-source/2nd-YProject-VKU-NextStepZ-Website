@@ -12,9 +12,8 @@ import { useProfile } from '@/lib/profile-context';
 import {
   UserInfoCard,
   PersonalInfoCard,
-  CareerProfileCard,
+  ProfessionalProfileCard,
   UserActivity,
-  type CareerProfileData,
 } from '@/components/profile/user';
 
 // Employer Profile Components
@@ -30,7 +29,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [userInfoEdit, setUserInfoEdit] = useState(false);
-  const { userProfile, careerProfile, employerProfile, updateUserProfile, updateCareerProfile, updateEmployerProfile } = useProfile();
+  const { userProfile, employerProfile, updateUserProfile } = useProfile();
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -59,10 +58,6 @@ export default function ProfilePage() {
       email: data.email,
       bio: data.bio,
     });
-  };
-
-  const handleCareerProfileUpdate = (data: CareerProfileData) => {
-    updateCareerProfile(data);
   };
 
   // Loading state
@@ -293,13 +288,18 @@ export default function ProfilePage() {
                 }}
               />
 
-              {/* Career Profile Card */}
-              {careerProfile && (
-                <CareerProfileCard
-                  data={careerProfile}
-                  onUpdate={handleCareerProfileUpdate}
-                />
-              )}
+              {/* Professional Profile Card */}
+              <ProfessionalProfileCard
+                data={{
+                  objective: '',
+                  experiences: [],
+                  skills: [],
+                  education: [],
+                }}
+                onUpdate={(data) => {
+                  console.log('Professional profile updated:', data);
+                }}
+              />
 
               {/* User Activity */}
               <UserActivity

@@ -9,10 +9,10 @@ import { useProfile } from '@/lib/profile-context';
 interface JobPosting {
   id: string;
   title: string;
-  location: string;
-  level: string;
-  postedAt: string;
-  applications: number;
+  location?: string;
+  level?: string;
+  postedAt?: string;
+  applications?: number;
 }
 
 interface EmployerJobPostingsProps {

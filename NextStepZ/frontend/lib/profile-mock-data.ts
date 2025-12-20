@@ -35,71 +35,6 @@ export const mockPersonalInfo = {
   ],
 };
 
-export const mockCareerProfile = {
-  objective:
-    'Tìm kiếm vị trí Frontend Developer có kinh nghiệm để phát triển kỹ năng kỹ thuật và đóng góp cho các dự án công nghệ hiện đại. Mục tiêu: xây dựng sự nghiệp vững chắc trong lĩnh vực phát triển web.',
-  experiences: [
-    {
-      id: '1',
-      position: 'Frontend Developer',
-      company: 'Tech Company Vietnam',
-      startDate: '2023-01',
-      endDate: '',
-      description:
-        'Phát triển ứng dụng web với React và TypeScript. Tối ưu hóa hiệu suất và trải nghiệm người dùng. Cộng tác với team backend và designer.',
-      isCurrent: true,
-    },
-    {
-      id: '2',
-      position: 'Junior Developer',
-      company: 'Startup ABC',
-      startDate: '2022-06',
-      endDate: '2022-12',
-      description:
-        'Xây dựng các tính năng UI/UX sử dụng Vue.js. Cộng tác với team designer. Participate in code reviews.',
-      isCurrent: false,
-    },
-    {
-      id: '3',
-      position: 'Intern Frontend Developer',
-      company: 'Freelance',
-      startDate: '2022-01',
-      endDate: '2022-05',
-      description:
-        'Xây dựng các trang web responsive sử dụng HTML, CSS, JavaScript. Learning agile methodology.',
-      isCurrent: false,
-    },
-  ],
-  skills: [
-    { id: '1', name: 'React', level: 'advanced' as const },
-    { id: '2', name: 'TypeScript', level: 'advanced' as const },
-    { id: '3', name: 'Tailwind CSS', level: 'advanced' as const },
-    { id: '4', name: 'Next.js', level: 'intermediate' as const },
-    { id: '5', name: 'Vue.js', level: 'intermediate' as const },
-    { id: '6', name: 'JavaScript', level: 'expert' as const },
-    { id: '7', name: 'HTML/CSS', level: 'expert' as const },
-    { id: '8', name: 'Figma', level: 'beginner' as const },
-    { id: '9', name: 'Git', level: 'intermediate' as const },
-    { id: '10', name: 'REST API', level: 'intermediate' as const },
-  ],
-  education: [
-    {
-      id: '1',
-      school: 'Đại học Bách Khoa Hà Nội',
-      degree: 'Cử nhân',
-      field: 'Công nghệ thông tin',
-      graduationYear: '2023',
-    },
-    {
-      id: '2',
-      school: 'Trường THPT Lê Quý Đôn',
-      degree: 'THPT',
-      field: 'Chuyên Toán',
-      graduationYear: '2019',
-    },
-  ],
-};
-
 export const mockActivities = [
   {
     id: '1',
@@ -153,6 +88,5 @@ export const mockActivities = [
 ];
 
 // Type exports for use in components
-export type { PersonalInfo } from '@/components/profile/personal-info-card';
-export type { CareerProfileData } from '@/components/profile/career-profile-card';
-export type { Activity } from '@/components/profile/recent-activity-card';
+export type { PersonalInfo } from '@/components/profile/user/personal-info-card';
+export type { Activity } from '@/components/profile/user/recent-activity-card';

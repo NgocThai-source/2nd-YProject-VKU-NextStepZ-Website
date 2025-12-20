@@ -53,7 +53,7 @@ export function CommentReply({
       // Create new reply
       const newReply: Comment = {
         id: `${reply.id}-reply-${Date.now()}`,
-        author: { id: '1', name: 'Bạn', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User', role: 'student', followers: 0, following: 0 },
+        author: { id: '1', name: 'Bạn', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User', role: 'user', followers: 0, following: 0 },
         content: localReplyContent,
         timestamp: new Date().toISOString(),
         likes: 0,

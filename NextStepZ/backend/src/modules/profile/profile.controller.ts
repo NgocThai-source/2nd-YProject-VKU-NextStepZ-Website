@@ -25,6 +25,8 @@ import {
 import { JwtAuthGuard } from '../../modules/auth/guards/jwt-auth.guard';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { multerConfig } from '../../config/multer.config';
+import { RoleGuard } from '../../common/guards/role.guard';
+import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('profiles')
 export class ProfileController {
@@ -86,8 +88,10 @@ export class ProfileController {
 
   // ===== Professional Profile Endpoints =====
   // Update professional profile (objective, experiences, skills, education)
+  // Only students (role: 'user') can access this endpoint
   @Put('me/professional-profile')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RoleGuard)
+  @Roles('user')
   @HttpCode(HttpStatus.OK)
   async updateProfessionalProfile(
     @CurrentUser() user: any,

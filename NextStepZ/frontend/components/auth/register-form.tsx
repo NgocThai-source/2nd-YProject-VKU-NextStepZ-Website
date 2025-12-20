@@ -315,7 +315,7 @@ const universitiesByProvince: { [key: string]: string[] | null } = {
 };
 
 export function RegisterForm({ onToggleForm }: RegisterFormProps) {
-  const [role, setRole] = useState<'student' | 'employer' | null>(null);
+  const [role, setRole] = useState<'user' | 'employer' | null>(null);
   const [age, setAge] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -475,10 +475,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
         email,
         phone: phoneDigitsOnly,
         password,
-        role: role === 'student' ? 'user' : 'employer',
+        role: role === 'user' ? 'user' : 'employer',
       };
 
-      if (role === 'student') {
+      if (role === 'user') {
         const nameParts = fullName.trim().split(' ');
         registerData.firstName = nameParts[0] || '';
         registerData.lastName = nameParts.slice(1).join(' ') || '';
@@ -578,12 +578,12 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
         </label>
         <div className="grid grid-cols-2 gap-2 sm:gap-3">
           {[
-            { value: 'student', label: 'Sinh viên', icon: '🎓' },
+            { value: 'user', label: 'Sinh viên', icon: '🎓' },
             { value: 'employer', label: 'Nhà tuyển dụng', icon: '🏢' },
           ].map((option) => (
             <motion.button
               key={option.value}
-              onClick={() => setRole(option.value as 'student' | 'employer')}
+              onClick={() => setRole(option.value as 'user' | 'employer')}
               className={`p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-1 sm:gap-2 font-semibold whitespace-nowrap text-xs sm:text-sm ${
                 role === option.value
                   ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300'
@@ -626,7 +626,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
       {/* Conditional Fields based on Role */}
       <motion.div className="space-y-4" variants={itemVariants}>
-        {role === 'student' && (
+        {role === 'user' && (
           <motion.div 
             className="space-y-4"
             initial={{ opacity: 0, y: 20 }}

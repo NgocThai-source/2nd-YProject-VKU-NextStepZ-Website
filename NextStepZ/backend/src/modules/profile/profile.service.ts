@@ -711,19 +711,33 @@ export class ProfileService {
 
     let careerProfile = profile.careerProfile;
 
-    // Create career profile if it doesn't exist
+    // Get user role to check if they can have career profile
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Create career profile if it doesn't exist (only for students with role 'user')
     if (!careerProfile) {
-      careerProfile = await this.prisma.careerProfile.create({
-        data: {
-          profileId: fullProfileData.id,
-          objective: updateProfessionalProfileDto.objective || '',
-        },
-        include: {
-          experiences: true,
-          skills: true,
-          education: true,
-        },
-      });
+      if (user.role === 'user') {
+        careerProfile = await this.prisma.careerProfile.create({
+          data: {
+            profileId: fullProfileData.id,
+            objective: updateProfessionalProfileDto.objective || '',
+          },
+          include: {
+            experiences: true,
+            skills: true,
+            education: true,
+          },
+        });
+      } else {
+        throw new BadRequestException('Only students can have career profile');
+      }
     } else {
       // Update objective if provided
       if (updateProfessionalProfileDto.objective) {

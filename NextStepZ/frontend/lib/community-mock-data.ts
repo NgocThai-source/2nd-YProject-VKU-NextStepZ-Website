@@ -123,16 +123,6 @@ export interface Company {
   totalReviews?: number;
 }
 
-// Mentor Types
-export interface Mentor extends CommunityUser {
-  specialization: string;
-  yearsExperience: number;
-  bio: string;
-  hourlyRate?: number;
-  availability: 'available' | 'busy' | 'offline';
-  requestSent?: boolean;
-}
-
 // Leaderboard Types
 export interface LeaderboardUser {
   rank: number;
@@ -253,7 +243,7 @@ export const mockUsers: CommunityUser[] = [
     name: 'Ngô Yến I',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Riley',
     role: 'employer',
-    title: 'Tech Recruiter',
+    title: 'Hiring Manager',
     company: 'LinkedIn Vietnam',
     followers: 523,
     following: 312,
@@ -316,7 +306,7 @@ export const mockUsers: CommunityUser[] = [
     name: 'Phan Huy N',
     avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Quinn',
     role: 'employer',
-    title: 'Tech Lead Recruiter',
+    title: 'HR Director',
     company: 'Talentify Vietnam',
     followers: 456,
     following: 178,
@@ -1053,46 +1043,6 @@ export const mockCompanyReviews: CompanyReview[] = [
     timestamp: '3 tuần trước',
     helpful: 98,
     position: 'Product Manager',
-  },
-];
-
-// Mock Mentors
-export const mockMentors: Mentor[] = [
-  {
-    id: '1',
-    name: 'Phạm Minh C',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Garrick',
-    role: 'user',
-    title: 'Senior Software Engineer',
-    company: 'Microsoft',
-    followers: 1240,
-    following: 95,
-    isFollowing: false,
-    reputation: 892,
-    verified: true,
-    specialization: 'Full Stack Development, System Design',
-    yearsExperience: 10,
-    bio: 'Passionate about helping junior developers. I mentor on JavaScript, React, Node.js, and system design.',
-    hourlyRate: 50,
-    availability: 'available',
-  },
-  {
-    id: '2',
-    name: 'Lý Quốc D',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=Sophie',
-    role: 'user',
-    title: 'Product Manager',
-    company: 'Meta',
-    followers: 567,
-    following: 234,
-    isFollowing: false,
-    reputation: 456,
-    verified: true,
-    specialization: 'Product Management, Startup Strategy',
-    yearsExperience: 8,
-    bio: 'Helping aspiring PMs transition from engineering to product. Love discussing product strategy and growth.',
-    hourlyRate: 45,
-    availability: 'busy',
   },
 ];
 

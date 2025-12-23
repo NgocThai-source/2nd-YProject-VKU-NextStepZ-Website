@@ -7,13 +7,16 @@ import {
   Put,
   Post,
   Param,
+  Query,
   Body,
+  Req,
   UseGuards,
   HttpCode,
   HttpStatus,
   UseInterceptors,
   UploadedFile,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProfileService } from './profile.service';
 import {
@@ -30,7 +33,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 
 @Controller('profiles')
 export class ProfileController {
-  constructor(private profileService: ProfileService) {}
+  constructor(private profileService: ProfileService) { }
 
   // Get current user's profile
   @Get('me')
@@ -120,10 +123,32 @@ export class ProfileController {
   }
 
   // Get public profile by share token (public endpoint)
+  // Optionally accepts JWT to detect if viewer is the profile owner
   @Get('public/share/:shareToken')
   @HttpCode(HttpStatus.OK)
-  async getPublicProfileByToken(@Param('shareToken') shareToken: string) {
-    return this.profileService.getPublicProfileByToken(shareToken);
+  async getPublicProfileByToken(
+    @Param('shareToken') shareToken: string,
+    @Query('skipView') skipView?: string,
+    @Req() request?: Request,
+  ) {
+    // skipView=true is passed during polling to prevent viewCount inflation
+    const shouldSkipView = skipView === 'true';
+
+    // Extract viewerId from optional JWT token to check if owner is viewing their own profile
+    let viewerId: string | undefined;
+    const authHeader = request?.headers?.['authorization'] as string | undefined;
+    if (authHeader?.startsWith('Bearer ')) {
+      try {
+        const token = authHeader.substring(7);
+        // Decode the JWT payload without verification (already validated by guard if needed)
+        const payload = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        viewerId = payload.sub || payload.userId;
+      } catch {
+        // Invalid token, ignore - treat as anonymous viewer
+      }
+    }
+
+    return this.profileService.getPublicProfileByToken(shareToken, shouldSkipView, viewerId);
   }
 
   // Get public profile by user ID (public endpoint)

@@ -1,7 +1,8 @@
 'use client';
 
+import React from 'react';
 import { motion } from 'framer-motion';
-import { Facebook, Mail, Github } from 'lucide-react';
+import { Facebook, Mail, Github, Sparkles, Quote } from 'lucide-react';
 import Image from 'next/image';
 
 interface Founder {
@@ -20,7 +21,7 @@ const founders: Founder[] = [
   {
     id: 1,
     name: 'Nguyễn Ngọc Thái',
-    university: 'Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU), Đại học Đà Nẵng',
+    university: 'Trường ĐH CNTT & TT Việt - Hàn (VKU), Đại học Đà Nẵng',
     social: {
       facebook: 'https://www.facebook.com/2nthais/',
       email: 'nguyenngocthai.nqu@gmail.com',
@@ -31,7 +32,7 @@ const founders: Founder[] = [
   {
     id: 2,
     name: 'Lê Đức Hải',
-    university: 'Trường Đại học Công nghệ Thông tin và Truyền thông Việt - Hàn (VKU), Đại học Đà Nẵng',
+    university: 'Trường ĐH CNTT & TT Việt - Hàn (VKU), Đại học Đà Nẵng',
     social: {
       facebook: 'https://facebook.com',
       email: 'tech@nextstepz.com',
@@ -63,91 +64,45 @@ export default function FoundersSection() {
   };
 
   return (
-    <section className="relative w-full py-20 md:py-32 px-4 md:px-8 bg-linear-to-b from-slate-900 via-slate-950 to-slate-900 overflow-hidden">
-      {/* Animated Background Elements */}
+    <section className="relative w-full py-24 md:py-36 px-4 md:px-8 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        {/* Gradient orbs */}
         <motion.div
-          className="absolute top-1/4 -right-48 w-96 h-96 bg-purple-500/15 rounded-full blur-3xl"
+          className="absolute top-1/4 -right-48 w-[500px] h-[500px] rounded-full opacity-20"
+          style={{
+            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, transparent 60%)',
+            filter: 'blur(100px)',
+          }}
           animate={{
             x: [0, 100, 0],
             y: [0, 60, 0],
-            scale: [1, 1.2, 1],
           }}
-          transition={{
-            duration: 15,
-            repeat: Infinity,
-          }}
+          transition={{ duration: 15, repeat: Infinity }}
         />
         <motion.div
-          className="absolute bottom-1/4 -left-48 w-96 h-96 bg-cyan-500/15 rounded-full blur-3xl"
+          className="absolute bottom-1/4 -left-48 w-[500px] h-[500px] rounded-full opacity-20"
+          style={{
+            background: 'radial-gradient(circle, rgba(34, 211, 238, 0.4) 0%, transparent 60%)',
+            filter: 'blur(100px)',
+          }}
           animate={{
             x: [0, -100, 0],
             y: [0, -60, 0],
-            scale: [1, 1.15, 1],
           }}
-          transition={{
-            duration: 16,
-            repeat: Infinity,
-            delay: 1,
-          }}
-        />
-        <motion.div
-          className="absolute top-1/2 left-1/3 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl"
-          animate={{
-            x: [0, -80, 0],
-            y: [0, 50, 0],
-          }}
-          transition={{
-            duration: 14,
-            repeat: Infinity,
-            delay: 2,
-          }}
+          transition={{ duration: 16, repeat: Infinity, delay: 1 }}
         />
 
-        {/* Animated grid */}
         <motion.div
-          className="absolute inset-0 opacity-[0.03]"
-          animate={{
-            backgroundPosition: ['0px 0px', '100px 100px'],
-          }}
-          transition={{
-            duration: 20,
-            repeat: Infinity,
-            ease: 'linear',
-          }}
+          className="absolute inset-0 opacity-[0.02]"
+          animate={{ backgroundPosition: ['0px 0px', '100px 100px'] }}
+          transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
           style={{
-            backgroundImage:
-              'linear-gradient(45deg, #22d3ee 1px, transparent 1px), linear-gradient(-45deg, #22d3ee 1px, transparent 1px)',
-            backgroundSize: '100px 100px',
+            backgroundImage: 'linear-gradient(45deg, #22d3ee 1px, transparent 1px), linear-gradient(-45deg, #22d3ee 1px, transparent 1px)',
+            backgroundSize: '80px 80px',
           }}
         />
-
-        {/* Floating particles */}
-        {[0, 1, 2, 3].map((i) => (
-          <motion.div
-            key={i}
-            className="absolute w-2 h-2 bg-cyan-400/30 rounded-full"
-            style={{
-              left: `${15 + i * 20}%`,
-              top: `${20 + i * 15}%`,
-            }}
-            animate={{
-              y: [0, -100, 0],
-              x: [0, (i % 2 === 0 ? 30 : -30), 0],
-              opacity: [0, 0.5, 0],
-            }}
-            transition={{
-              duration: 4 + i * 0.5,
-              repeat: Infinity,
-              delay: i * 0.8,
-            }}
-          />
-        ))}
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto">
-        {/* Header */}
+      <div className="relative z-10 max-w-6xl mx-auto">
         <motion.div
           className="text-center mb-16 md:mb-20"
           initial={{ opacity: 0, y: 20 }}
@@ -155,27 +110,36 @@ export default function FoundersSection() {
           transition={{ duration: 0.8 }}
           viewport={{ once: true, margin: '-100px' }}
         >
+          <motion.div className="flex justify-center mb-6">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-purple-500/10 to-cyan-500/10 border border-purple-400/30">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+              <span className="text-sm font-medium text-purple-300" style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}>
+                Đội Ngũ Sáng Lập
+              </span>
+            </div>
+          </motion.div>
+
           <h2
-            className="text-4xl sm:text-5xl md:text-6xl font-bold mb-4 md:mb-6"
+            className="text-4xl sm:text-5xl md:text-6xl font-bold mb-6"
             style={{ fontFamily: "'Exo 2 ExtraBold', sans-serif" }}
           >
-            <span className="bg-linear-to-r from-purple-300 via-cyan-300 to-blue-400 bg-clip-text text-transparent">
-              Những Người Đứng Sau NextStepZ
+            <span className="gradient-text-premium">
+              Những Người Đứng Sau
             </span>
+            <br />
+            <span className="text-white">NextStepZ</span>
           </h2>
 
           <p
-            className="text-gray-400 text-base md:text-lg max-w- mx-auto"
+            className="text-gray-400 text-base md:text-lg max-w-3xl mx-auto leading-relaxed"
             style={{ fontFamily: "'Poppins Regular', sans-serif" }}
           >
-            Giữa sự bấp bênh của thị trường và nỗi lo thất nghiệp, chúng mình muốn tạo nên một nền tảng thật sự hỗ trợ sinh viên — giúp các bạn tìm được hướng đi phù hợp, một công việc đúng ngành 
-            hoặc thậm chí là những công việc part-time để vững vàng hơn trên hành trình trưởng thành của. Và chúng mình đã biến một ý tưởng nhỏ bé ấy thành NextStepZ - nơi giúp sinh viên tìm được hướng đi đúng đắn cho tương lai.
+            Giữa sự bấp bênh của thị trường và nỗi lo thất nghiệp, chúng mình muốn tạo nên một nền tảng thật sự hỗ trợ sinh viên — giúp các bạn tìm được hướng đi phù hợp.
           </p>
         </motion.div>
 
-        {/* Founders Grid */}
         <motion.div
-          className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 max-w-4xl mx-auto"
+          className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-10 max-w-4xl mx-auto"
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
@@ -189,29 +153,17 @@ export default function FoundersSection() {
               whileHover={{ y: -10 }}
             >
               <div className="relative h-full">
-                {/* Glow effect background */}
                 <motion.div
-                  className={`absolute -inset-0.5 rounded-3xl bg-linear-to-r ${
-                    index === 0
-                      ? 'from-cyan-500/30 to-blue-500/30'
-                      : 'from-purple-500/30 to-pink-500/30'
-                  } blur-2xl opacity-0 group-hover:opacity-100 transition-all duration-500`}
-                  animate={{
-                    scale: [1, 1.05, 1],
-                  }}
-                  transition={{
-                    duration: 3,
-                    repeat: Infinity,
-                  }}
+                  className={`absolute -inset-0.5 rounded-3xl blur-xl opacity-0 group-hover:opacity-100 transition-all duration-500 ${index === 0
+                      ? 'bg-gradient-to-r from-cyan-500/30 to-blue-500/30'
+                      : 'bg-gradient-to-r from-purple-500/30 to-pink-500/30'
+                    }`}
                 />
 
-                {/* Main Card */}
-                <div className={`relative h-full p-8 md:p-10 rounded-3xl border backdrop-blur-sm transition-all duration-500 bg-linear-to-br ${
-                  index === 0
-                    ? 'border-cyan-400/20 from-cyan-500/10 to-blue-500/10 group-hover:border-cyan-400/50'
-                    : 'border-purple-400/20 from-purple-500/10 to-pink-500/10 group-hover:border-purple-400/50'
-                }`}>
-                  {/* Profile Image Section */}
+                <div className={`relative h-full glass-card-strong rounded-3xl p-8 md:p-10 border transition-all duration-500 ${index === 0
+                    ? 'border-cyan-400/20 group-hover:border-cyan-400/50'
+                    : 'border-purple-400/20 group-hover:border-purple-400/50'
+                  }`}>
                   <motion.div
                     className="mb-8 relative flex justify-center"
                     initial={{ opacity: 0, scale: 0.8 }}
@@ -219,11 +171,8 @@ export default function FoundersSection() {
                     transition={{ duration: 0.6 }}
                     viewport={{ once: true }}
                   >
-                    <div
-                      className={`relative w-80 h-90 rounded-2xl overflow-hidden border-2 ${
-                        index === 0 ? 'border-cyan-400/30' : 'border-purple-400/30'
-                      } group-hover:border-opacity-100 transition-all duration-300`}
-                    >
+                    <div className={`relative w-40 h-48 rounded-2xl overflow-hidden border-2 transition-all duration-300 ${index === 0 ? 'border-cyan-400/30 group-hover:border-cyan-400' : 'border-purple-400/30 group-hover:border-purple-400'
+                      }`}>
                       {index === 0 && founder.image ? (
                         <Image
                           src={founder.image}
@@ -233,43 +182,34 @@ export default function FoundersSection() {
                           priority
                         />
                       ) : (
-                        <div className={`w-full h-full rounded-2xl flex items-center justify-center text-white text-lg font-semibold bg-linear-to-br ${
-                          index === 0
+                        <div className={`w-full h-full flex items-center justify-center text-white text-4xl font-bold bg-gradient-to-br ${index === 0
                             ? 'from-cyan-500 to-blue-600'
                             : 'from-purple-500 to-pink-600'
-                        }`}>
+                          }`}>
                           {founder.name.charAt(0)}
                         </div>
                       )}
                     </div>
-
-
                   </motion.div>
 
-                  {/* Content Section */}
-                  <div className="space-y-4 mb-8">
-                    <div>
-                      <h3
-                        className={`text-2xl md:text-3xl font-bold mb-3 ${
-                          index === 0 ? 'text-cyan-300' : 'text-purple-300'
+                  <div className="text-center space-y-3 mb-6">
+                    <h3
+                      className={`text-2xl md:text-3xl font-bold ${index === 0 ? 'text-cyan-300' : 'text-purple-300'
                         }`}
-                        style={{ fontFamily: "'Poppins ExtraBold', sans-serif" }}
-                      >
-                        {founder.name}
-                      </h3>
-                      <p
-                        className="text-xs md:text-sm text-gray-400 flex items-center gap-2"
-                        style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${index === 0 ? 'bg-cyan-400' : 'bg-purple-400'}`} />
+                      style={{ fontFamily: "'Poppins ExtraBold', sans-serif" }}
+                    >
+                      {founder.name}
+                    </h3>
+                    <div className="flex items-center justify-center gap-2 text-gray-400">
+                      <span className={`w-1.5 h-1.5 rounded-full ${index === 0 ? 'bg-cyan-400' : 'bg-purple-400'}`} />
+                      <p className="text-xs md:text-sm" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
                         {founder.university}
                       </p>
                     </div>
                   </div>
 
-                  {/* Social Links */}
                   <motion.div
-                    className="flex items-center gap-4 pt-6 border-t border-white/10"
+                    className="flex items-center justify-center gap-4 pt-6 border-t border-white/10"
                     initial={{ opacity: 0, y: 10 }}
                     whileInView={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6, delay: 0.2 }}
@@ -280,15 +220,14 @@ export default function FoundersSection() {
                         href={founder.social.facebook}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`p-2 rounded-lg border transition-all duration-300 ${
-                          index === 0
-                            ? 'border-cyan-400/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/50'
-                            : 'border-purple-400/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/50'
-                        }`}
-                        whileHover={{ scale: 1.15, rotate: 5 }}
+                        className={`p-3 rounded-xl border transition-all duration-300 ${index === 0
+                            ? 'border-cyan-400/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20'
+                            : 'border-purple-400/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20'
+                          }`}
+                        whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Facebook className="w-4 h-4" />
+                        <Facebook className="w-5 h-5" />
                       </motion.a>
                     )}
                     {founder.social.github && (
@@ -296,73 +235,36 @@ export default function FoundersSection() {
                         href={founder.social.github}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className={`p-2 rounded-lg border transition-all duration-300 ${
-                          index === 0
-                            ? 'border-cyan-400/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/50'
-                            : 'border-purple-400/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/50'
-                        }`}
-                        whileHover={{ scale: 1.15, rotate: 5 }}
+                        className={`p-3 rounded-xl border transition-all duration-300 ${index === 0
+                            ? 'border-cyan-400/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20'
+                            : 'border-purple-400/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20'
+                          }`}
+                        whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Github className="w-4 h-4" />
+                        <Github className="w-5 h-5" />
                       </motion.a>
                     )}
                     {founder.social.email && (
                       <motion.a
                         href={`mailto:${founder.social.email}`}
-                        className={`p-2 rounded-lg border transition-all duration-300 ${
-                          index === 0
-                            ? 'border-cyan-400/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/50'
-                            : 'border-purple-400/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/50'
-                        }`}
-                        whileHover={{ scale: 1.15, rotate: 5 }}
+                        className={`p-3 rounded-xl border transition-all duration-300 ${index === 0
+                            ? 'border-cyan-400/20 text-cyan-400 hover:bg-cyan-500/20 hover:border-cyan-400/50 hover:shadow-lg hover:shadow-cyan-500/20'
+                            : 'border-purple-400/20 text-purple-400 hover:bg-purple-500/20 hover:border-purple-400/50 hover:shadow-lg hover:shadow-purple-500/20'
+                          }`}
+                        whileHover={{ scale: 1.1 }}
                         whileTap={{ scale: 0.95 }}
                       >
-                        <Mail className="w-4 h-4" />
+                        <Mail className="w-5 h-5" />
                       </motion.a>
                     )}
-                    <div className="flex-1" />
-                    <p
-                      className="text-xs text-gray-500"
-                      style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-                    >
-                      Kết nối với chúng tôi
-                    </p>
                   </motion.div>
-
-                  {/* Decorative corner elements */}
-                  <motion.div
-                    className={`absolute top-0 right-0 w-20 h-20 rounded-full ${
-                      index === 0 ? 'bg-cyan-500/10' : 'bg-purple-500/10'
-                    } blur-xl pointer-events-none`}
-                    animate={{
-                      scale: [0.8, 1.2, 0.8],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                    }}
-                  />
-                  <motion.div
-                    className={`absolute bottom-0 left-0 w-16 h-16 rounded-full ${
-                      index === 0 ? 'bg-blue-500/10' : 'bg-pink-500/10'
-                    } blur-xl pointer-events-none`}
-                    animate={{
-                      scale: [1.2, 0.8, 1.2],
-                    }}
-                    transition={{
-                      duration: 4,
-                      repeat: Infinity,
-                      delay: 0.5,
-                    }}
-                  />
                 </div>
               </div>
             </motion.div>
           ))}
         </motion.div>
 
-        {/* Bottom Quote Section */}
         <motion.div
           className="mt-20 md:mt-28"
           initial={{ opacity: 0, y: 40 }}
@@ -370,28 +272,21 @@ export default function FoundersSection() {
           transition={{ duration: 0.8, delay: 0.2 }}
           viewport={{ once: true, margin: '-100px' }}
         >
-          <div className="relative px-8 md:px-12 py-12 md:py-16 rounded-2xl border border-cyan-400/30 bg-linear-to-r from-cyan-500/5 to-purple-500/5 backdrop-blur-sm overflow-hidden">
-            {/* Background glow */}
+          <div className="relative glass-card-strong rounded-3xl p-8 md:p-12 border border-cyan-400/20 overflow-hidden">
             <motion.div
-              className="absolute -inset-1 rounded-2xl bg-linear-to-r from-cyan-500/20 to-purple-500/20 blur-2xl opacity-50"
-              animate={{
-                scale: [1, 1.1, 1],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-              }}
+              className="absolute -inset-1 rounded-3xl bg-gradient-to-r from-cyan-500/10 to-purple-500/10 blur-xl opacity-50"
             />
 
             <div className="relative text-center space-y-4">
+              <Quote className="w-10 h-10 text-cyan-400/50 mx-auto mb-4" />
               <p
-                className="text-lg md:text-2xl text-gray-300 italic leading-relaxed"
+                className="text-lg md:text-2xl text-gray-300 italic leading-relaxed max-w-4xl mx-auto"
                 style={{ fontFamily: "'Poppins Medium Italic', sans-serif" }}
               >
                 &ldquo;Chúng mình tin rằng mỗi sinh viên đều sở hữu một tiềm năng lớn hơn những gì họ nghĩ. NextStepZ được tạo ra để giúp bạn khám phá thế mạnh của mình, phát triển kỹ năng và từng bước biến ước mơ nghề nghiệp thành hiện thực.&rdquo;
               </p>
               <p
-                className="text-sm md:text-base text-cyan-400"
+                className="text-sm md:text-base text-cyan-400 font-semibold"
                 style={{ fontFamily: "'Poppins SemiBold', sans-serif" }}
               >
                 — Nguyễn Ngọc Thái

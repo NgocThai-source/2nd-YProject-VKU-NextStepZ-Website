@@ -31,7 +31,7 @@ const formatBirthDate = (birthDate: Date | null | undefined): string | null => {
 
 @Injectable()
 export class ProfileService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   // Create profile for new user
   async createProfile(userId: string, createProfileDto?: CreateProfileDto) {
@@ -279,17 +279,16 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    // Handle social links conversion if it's an array
+    // Handle social links conversion - keep as array format to preserve all fields
     let socialLinksData: any = fullProfile.socialLinks;
     if (updateProfileDto.socialLinks) {
       if (Array.isArray(updateProfileDto.socialLinks)) {
-        socialLinksData = updateProfileDto.socialLinks.reduce(
-          (acc, link) => {
-            acc[link.platform || link.id] = link.url;
-            return acc;
-          },
-          {} as Record<string, string>,
-        );
+        // Store as array to preserve id, platform, and url
+        socialLinksData = updateProfileDto.socialLinks.map((link, idx) => ({
+          id: link.id || `${Date.now()}-${idx}`,
+          platform: link.platform || link.id,
+          url: link.url,
+        }));
       } else {
         socialLinksData = updateProfileDto.socialLinks;
       }
@@ -489,9 +488,14 @@ export class ProfileService {
       fs.mkdirSync(uploadDir, { recursive: true });
     }
 
-    const fileName = `${userId}-${Date.now()}-${file.originalname}`;
-    const filePath = path.join(uploadDir, fileName);
-    const fileUrl = `/uploads/avatars/${fileName}`;
+    // Generate a safe filename (remove special characters)
+    const ext = path.extname(file.originalname).toLowerCase();
+    const safeFileName = `${userId}-${Date.now()}${ext}`;
+    const filePath = path.join(uploadDir, safeFileName);
+
+    // Get the server base URL from environment or default
+    const serverBaseUrl = process.env.SERVER_BASE_URL || 'http://localhost:3001';
+    const fileUrl = `${serverBaseUrl}/uploads/avatars/${safeFileName}`;
 
     fs.writeFileSync(filePath, file.buffer);
 
@@ -579,17 +583,16 @@ export class ProfileService {
       throw new NotFoundException('Profile not found');
     }
 
-    // Process social links - convert array to object for storage
+    // Process social links - keep as array format to preserve id, platform, and url
     let socialLinksData: any = fullProfile.socialLinks;
     if (updatePersonalInfoDto.socialLinks) {
       if (Array.isArray(updatePersonalInfoDto.socialLinks)) {
-        socialLinksData = updatePersonalInfoDto.socialLinks.reduce(
-          (acc, link) => {
-            acc[link.platform] = link.url;
-            return acc;
-          },
-          {} as Record<string, string>,
-        );
+        // Store as array to preserve all fields (id, platform, url)
+        socialLinksData = updatePersonalInfoDto.socialLinks.map((link, idx) => ({
+          id: link.id || `${Date.now()}-${idx}`,
+          platform: link.platform,
+          url: link.url,
+        }));
       } else {
         socialLinksData = updatePersonalInfoDto.socialLinks;
       }
@@ -901,7 +904,9 @@ export class ProfileService {
   }
 
   // Get public profile by share token
-  async getPublicProfileByToken(shareToken: string) {
+  // skipView: if true, don't increment view count (used for polling/real-time updates)
+  // viewerId: if provided, check if this is the profile owner viewing their own profile
+  async getPublicProfileByToken(shareToken: string, skipView: boolean = false, viewerId?: string) {
     const publicProfile = await this.prisma.publicProfile.findUnique({
       where: { shareToken },
       include: {
@@ -931,6 +936,11 @@ export class ProfileService {
                     createdAt: 'desc',
                   },
                 },
+                skills: {
+                  orderBy: {
+                    createdAt: 'desc',
+                  },
+                },
               },
             },
           },
@@ -956,13 +966,20 @@ export class ProfileService {
       },
     });
 
-    // Increment view count
-    await this.prisma.publicProfile.update({
-      where: { id: publicProfile.id },
-      data: {
-        viewCount: publicProfile.viewCount + 1,
-      },
-    });
+    // Check if viewer is the profile owner
+    const isOwnerViewing = viewerId && viewerId === publicProfile.profile.userId;
+
+    // Only increment view count on initial page load, not during polling and not for owner
+    let currentViewCount = publicProfile.viewCount;
+    if (!skipView && !isOwnerViewing) {
+      const updatedProfile = await this.prisma.publicProfile.update({
+        where: { id: publicProfile.id },
+        data: {
+          viewCount: publicProfile.viewCount + 1,
+        },
+      });
+      currentViewCount = updatedProfile.viewCount;
+    }
 
     // Format posts to match frontend interface
     const formattedPosts = userPosts.map((post) => ({
@@ -980,6 +997,7 @@ export class ProfileService {
 
     return {
       ...publicProfile,
+      viewCount: currentViewCount, // Use the accurate view count
       profile: {
         ...publicProfile.profile,
         userPosts: formattedPosts,
@@ -1011,12 +1029,12 @@ export class ProfileService {
   // Helper function to format social links from JSON to array
   private formatSocialLinks(socialLinksData: any): any[] {
     if (!socialLinksData) return [];
-    
+
     // If already an array, return it
     if (Array.isArray(socialLinksData)) {
       return socialLinksData;
     }
-    
+
     // If it's an object (key-value pairs), convert to array
     if (typeof socialLinksData === 'object') {
       return Object.entries(socialLinksData).map(([platform, url], idx) => ({
@@ -1025,7 +1043,7 @@ export class ProfileService {
         url: url as string,
       }));
     }
-    
+
     return [];
   }
 
@@ -1056,6 +1074,11 @@ export class ProfileService {
                   },
                 },
                 education: {
+                  orderBy: {
+                    createdAt: 'desc',
+                  },
+                },
+                skills: {
                   orderBy: {
                     createdAt: 'desc',
                   },

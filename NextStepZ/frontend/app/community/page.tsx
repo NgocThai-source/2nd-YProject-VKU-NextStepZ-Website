@@ -90,7 +90,7 @@ export default function CommunityPage() {
               animate={{ opacity: 1, x: 0 }}
               className="flex items-center gap-3"
             >
-              
+
             </motion.div>
 
             <div className="flex items-center gap-2">
@@ -104,7 +104,7 @@ export default function CommunityPage() {
                 <Search className="w-5 h-5" />
               </motion.button>
 
-             
+
             </div>
           </div>
 
@@ -135,10 +135,10 @@ export default function CommunityPage() {
                 <motion.button
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
-                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg whitespace-nowrap transition-all md:flex-1 ${ activeSection === section.id
+                  className={`flex items-center justify-center gap-2 px-6 py-3 rounded-lg whitespace-nowrap transition-all md:flex-1 ${activeSection === section.id
                     ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-white shadow-lg shadow-blue-500/30'
                     : 'bg-white/5 text-gray-400 hover:bg-white/10 border border-white/10 hover:border-white/20'
-                  }`}
+                    }`}
                   style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -280,7 +280,7 @@ export default function CommunityPage() {
               className="w-full"
             >
               <div className="rounded-xl bg-white/5 border border-cyan-400/20 backdrop-blur-sm p-6 md:p-8 overflow-hidden">
-                <LeaderboardExpanded 
+                <LeaderboardExpanded
                   users={mockLeaderboard}
                   onUserClick={(userId) => {
                     const user = mockUsers.find((u) => u.id === userId);

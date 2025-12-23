@@ -3,10 +3,13 @@
 import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { motion } from 'framer-motion';
-import { Camera, Globe } from 'lucide-react';
+import { Camera, Globe, Loader2 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import EditUserInfoDialog from './edit-user-info-dialog';
 import SharePublicProfileDialog from './share-public-profile-dialog';
+import { useAuth } from '@/lib/auth-context';
+import { useToast } from '@/components/ui/toast';
+import { API_URL } from '@/lib/api';
 
 const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=User';
 
@@ -46,11 +49,15 @@ export default function UserInfoCard({
   onAvatarChange,
   onSaveUserInfo,
 }: UserInfoCardProps) {
+  const { getToken } = useAuth();
+  const { addToast } = useToast();
   const [isHoveringAvatar, setIsHoveringAvatar] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
+  const [localAvatar, setLocalAvatar] = useState<string | null>(null);
   const [publicProfile, setPublicProfile] = useState<{ id?: string; shareToken?: string; isActive?: boolean; viewCount?: number } | null>(null);
-  
+
   // Compute current data from props using useMemo
   const currentData = useMemo(() => ({
     avatar: getSafeAvatarUrl(avatar),
@@ -81,7 +88,7 @@ export default function UserInfoCard({
           body: JSON.stringify({}),
         });
         console.log('Public profile response status:', response.status);
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('✅ Public profile SUCCESS data:', JSON.stringify(data, null, 2));
@@ -107,10 +114,70 @@ export default function UserInfoCard({
     onSaveUserInfo?.(data);
   };
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      addToast('Chỉ chấp nhận file ảnh (jpg, png, webp)', 'error');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      addToast('Kích thước file tối đa là 5MB', 'error');
+      return;
+    }
+
+    setIsUploadingAvatar(true);
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setLocalAvatar(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+
+    try {
+      const token = getToken?.();
+      if (!token) {
+        addToast('Vui lòng đăng nhập để tải ảnh lên', 'error');
+        setLocalAvatar(null);
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_URL}/profiles/me/avatar`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const result = await response.json();
+
+      // Update local state with the new avatar URL
+      if (result.avatar) {
+        setLocalAvatar(result.avatar);
+      }
+
       onAvatarChange?.(file);
+      addToast('Cập nhật ảnh đại diện thành công!', 'success');
+    } catch (error) {
+      console.error('Error uploading avatar:', error);
+      setLocalAvatar(null);
+      addToast('Lỗi khi tải ảnh lên. Vui lòng thử lại.', 'error');
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -143,7 +210,7 @@ export default function UserInfoCard({
                 >
                   <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl overflow-hidden border-2 border-cyan-400/30 shadow-lg relative mx-auto sm:mx-0">
                     <Image
-                      src={getSafeAvatarUrl(currentData.avatar)}
+                      src={localAvatar || getSafeAvatarUrl(currentData.avatar)}
                       alt={currentData.name || 'Avatar'}
                       fill
                       className="object-cover"
@@ -152,27 +219,32 @@ export default function UserInfoCard({
                     />
                   </div>
 
-                  {/* Avatar Overlay */}
+                  {/* Avatar Overlay - Show loading or hover state */}
                   <motion.div
                     initial={{ opacity: 0 }}
-                    animate={{ opacity: isHoveringAvatar ? 1 : 0 }}
+                    animate={{ opacity: isUploadingAvatar || isHoveringAvatar ? 1 : 0 }}
                     transition={{ duration: 0.2 }}
                     className="absolute inset-0 bg-black/40 rounded-2xl flex items-center justify-center cursor-pointer"
                   >
-                    <Camera className="w-6 h-6 text-white" />
+                    {isUploadingAvatar ? (
+                      <Loader2 className="w-6 h-6 text-white animate-spin" />
+                    ) : (
+                      <Camera className="w-6 h-6 text-white" />
+                    )}
                   </motion.div>
 
                   {/* Hidden File Input */}
                   <input
                     type="file"
-                    accept="image/*"
+                    accept="image/jpeg,image/png,image/webp"
                     onChange={handleAvatarChange}
                     className="hidden"
                     id="avatar-upload"
+                    disabled={isUploadingAvatar}
                   />
                   <label
                     htmlFor="avatar-upload"
-                    className="absolute inset-0 rounded-2xl cursor-pointer"
+                    className={`absolute inset-0 rounded-2xl ${isUploadingAvatar ? 'cursor-wait' : 'cursor-pointer'}`}
                   />
                 </motion.div>
               </div>

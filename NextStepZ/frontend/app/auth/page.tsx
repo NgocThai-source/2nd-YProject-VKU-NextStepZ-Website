@@ -17,7 +17,7 @@ export default function AuthPage() {
       <div className="absolute inset-0 z-0">
         {/* Base gradient background */}
         <div className="absolute inset-0 bg-linear-to-b from-slate-900 via-blue-900 to-slate-900" />
-        
+
         {/* Animated gradient orbs */}
         <motion.div
           className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
@@ -62,7 +62,7 @@ export default function AuthPage() {
       {/* Content Container */}
       <div className="w-full max-w-7xl grid grid-cols-1 md:grid-cols-[55%_45%] gap-4 md:gap-8 lg:gap-12 items-center justify-center relative z-10 px-2 sm:px-4">
         {/* Logo and Welcome Section */}
-        <motion.div 
+        <motion.div
           className="hidden md:flex flex-col items-start space-y-2"
           initial={{ opacity: 0, x: -80 }}
           animate={{ opacity: 1, x: 0 }}
@@ -73,7 +73,7 @@ export default function AuthPage() {
           }}
         >
           {/* Logo */}
-          <motion.div 
+          <motion.div
             className="flex flex-row items-start gap-2"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -85,9 +85,9 @@ export default function AuthPage() {
             style={{ perspective: 1000 }}
           >
             <div className="relative w-130 h-30 shrink-0">
-              <Image 
-                src="/images/logofull1-transprent.png" 
-                alt="NextStepZ" 
+              <Image
+                src="/images/logofull1-transprent.png"
+                alt="NextStepZ"
                 fill
                 sizes="(max-width: 768px) 150px, 200px"
                 className="object-contain drop-shadow-lg"
@@ -99,7 +99,7 @@ export default function AuthPage() {
           </motion.div>
 
           {/* Welcome Text */}
-          <motion.div 
+          <motion.div
             className="space-y-6"
             initial={{ opacity: 0, y: 40, filter: 'blur(10px)' }}
             animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
@@ -110,13 +110,13 @@ export default function AuthPage() {
             }}
           >
             <div className="space-y-3">
-              <h1 
+              <h1
                 className="text-5xl lg:text-4xl font-black bg-linear-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent leading-tight"
                 style={{ fontFamily: "'Poppins ExtraBold', sans-serif" }}
               >
                 Khởi động hành trình của bạn
               </h1>
-              <p 
+              <p
                 className="text-xl text-gray-300 max-w-lg"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               >
@@ -125,7 +125,7 @@ export default function AuthPage() {
             </div>
 
             {/* Feature Pills */}
-            <motion.div 
+            <motion.div
               className="space-y-3"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -158,7 +158,7 @@ export default function AuthPage() {
           </motion.div>
 
           {/* Bottom Quote */}
-          <motion.div 
+          <motion.div
             className="pt-6 border-t border-cyan-400/30"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -167,7 +167,7 @@ export default function AuthPage() {
               delay: 1,
             }}
           >
-            <p 
+            <p
               className="text-lg text-gray-300 italic leading-relaxed max-w-lg"
               style={{ fontFamily: "'Poppins Medium Italic', sans-serif" }}
             >
@@ -177,7 +177,7 @@ export default function AuthPage() {
         </motion.div>
 
         {/* Auth Forms Container */}
-        <motion.div 
+        <motion.div
           className="w-full max-w-md sm:max-w-lg md:max-w-md mx-auto px-2 sm:px-4 md:px-0"
           initial={{ opacity: 0, x: 80 }}
           animate={{ opacity: 1, x: 0 }}
@@ -188,7 +188,7 @@ export default function AuthPage() {
           }}
         >
           {/* Premium Glassmorphism Form Card */}
-          <motion.div 
+          <motion.div
             className="relative rounded-3xl overflow-hidden"
             initial={{ opacity: 0, y: 40, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -201,7 +201,7 @@ export default function AuthPage() {
             {/* Background layers */}
             <div className="absolute inset-0 bg-linear-to-br from-cyan-500/20 via-blue-500/15 to-purple-500/20 backdrop-blur-xl" />
             <div className="absolute inset-0 border border-cyan-400/30" style={{ borderRadius: '1.5rem' }} />
-            
+
             {/* Gradient glow effect on hover */}
             <motion.div
               className="absolute inset-0 opacity-0 group-hover:opacity-100"

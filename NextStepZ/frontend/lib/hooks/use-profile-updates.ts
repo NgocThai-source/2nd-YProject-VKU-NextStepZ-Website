@@ -49,12 +49,13 @@ class ProfileUpdateManager {
 
   private async fetchProfileUpdate(token: string): Promise<void> {
     try {
-      const apiUrl = typeof window !== 'undefined' 
+      const apiUrl = typeof window !== 'undefined'
         ? ((window as unknown as Record<string, unknown>).NEXT_PUBLIC_API_URL as string | undefined) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
         : 'http://localhost:3001/api';
-      
+
+      // Use skipView=true to prevent viewCount from incrementing during polling
       const response = await fetch(
-        `${apiUrl}/profiles/public/share/${token}`,
+        `${apiUrl}/profiles/public/share/${token}?skipView=true`,
         {
           method: 'GET',
           headers: {
@@ -155,12 +156,13 @@ export function useProfileRefresh(token: string | undefined) {
     if (!token) return null;
 
     try {
-      const apiUrl = typeof window !== 'undefined' 
+      const apiUrl = typeof window !== 'undefined'
         ? ((window as unknown as Record<string, unknown>).NEXT_PUBLIC_API_URL as string | undefined) || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api'
         : 'http://localhost:3001/api';
 
+      // skipView=true to prevent double counting when user refreshes
       const response = await fetch(
-        `${apiUrl}/profiles/public/share/${token}`,
+        `${apiUrl}/profiles/public/share/${token}?skipView=true`,
         {
           method: 'GET',
           headers: {

@@ -21,7 +21,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private emailService: EmailService,
-  ) {}
+  ) { }
 
   async register(registerDto: RegisterDto): Promise<RegisterResponseDto> {
     // Check if user exists by email or phone
@@ -92,6 +92,29 @@ export class AuthService {
           major: registerDto.major,
         },
       });
+
+      // Create CareerProfile for user role (students)
+      if (registerDto.role === 'user' && profile) {
+        const careerProfile = await this.prisma.careerProfile.create({
+          data: {
+            profileId: profile.id,
+          },
+        });
+
+        // Create initial Education record if school/major is provided
+        // Mapping: University (auth) → School, Major (auth) → Field
+        if (registerDto.school || registerDto.major) {
+          await this.prisma.education.create({
+            data: {
+              careerProfileId: careerProfile.id,
+              school: registerDto.school || '',
+              field: registerDto.major || null,
+              degree: null, // Left blank as per requirement
+              graduationYear: null, // Left blank as per requirement
+            },
+          });
+        }
+      }
     } catch (error) {
       console.error('Failed to create profile:', error);
       // Continue anyway - profile creation failure shouldn't block registration

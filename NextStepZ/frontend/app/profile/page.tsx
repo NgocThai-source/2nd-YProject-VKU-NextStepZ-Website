@@ -106,7 +106,7 @@ export default function ProfilePage() {
       }
 
       const result = await response.json();
-      
+
       // Update local context
       updateUserProfile({
         careerProfile: {
@@ -304,8 +304,29 @@ export default function ProfilePage() {
                 email={userProfile?.email}
                 bio={userProfile?.bio}
                 onEditClick={() => setUserInfoEdit(!userInfoEdit)}
-                onAvatarChange={(file) => {
-                  console.log('Avatar changed:', file);
+                onAvatarChange={async (file) => {
+                  // The avatar upload is handled within UserInfoCard
+                  // After successful upload, refetch the profile to get the new avatar URL
+                  try {
+                    const token = getToken?.();
+                    if (!token) return;
+
+                    const response = await fetch(`${API_URL}/profiles/me`, {
+                      method: 'GET',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                      },
+                    });
+
+                    if (response.ok) {
+                      const updatedProfile = await response.json();
+                      updateUserProfile({
+                        avatar: updatedProfile.avatar,
+                      });
+                    }
+                  } catch (error) {
+                    console.error('Error refetching profile after avatar upload:', error);
+                  }
                 }}
                 onSaveUserInfo={handleUserInfoSave}
               />

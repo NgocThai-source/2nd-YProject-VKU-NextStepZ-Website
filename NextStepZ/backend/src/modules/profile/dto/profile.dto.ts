@@ -55,6 +55,10 @@ export class UpdateUserInfoDto {
 
 // ===== Personal Info DTO =====
 export class SocialLinkDto {
+  @IsOptional()
+  @IsString()
+  id?: string;
+
   @IsString()
   platform: string;
 

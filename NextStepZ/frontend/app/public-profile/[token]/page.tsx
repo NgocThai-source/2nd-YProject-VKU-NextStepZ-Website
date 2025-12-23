@@ -12,6 +12,7 @@ import { SharePublicProfileDialog } from '@/components/profile/user';
 import { ShareEmployerPublicProfileDialog, EmployerJobPostings, EmployerActivity } from '@/components/profile/employer';
 import { PublicPersonalInfoCard, PublicProfessionalInfoCard, PublicForumPostsCard } from '@/components/profile/public';
 import { useProfileUpdates } from '@/lib/hooks/use-profile-updates';
+import { useAuth } from '@/lib/auth-context';
 import { API_URL } from '@/lib/api';
 
 const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
@@ -109,6 +110,7 @@ interface PublicProfileData {
     birthDate?: string | null;
     city?: string | null;
     district?: string | null;
+    province?: string | null;
     objective?: string;
     experience?: string;
     education?: string;
@@ -131,7 +133,7 @@ interface PublicProfileData {
 
 export default function PublicProfileTokenPage() {
   const params = useParams();
-  const token = params?.token as string;
+  const shareToken = params?.token as string;
   const { addToast } = useToast();
 
   const [publicProfile, setPublicProfile] = useState<PublicProfileData | null>(null);
@@ -139,6 +141,7 @@ export default function PublicProfileTokenPage() {
   const [error, setError] = useState<string | null>(null);
   const [isFriendRequested, setIsFriendRequested] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
+  const { getToken } = useAuth();
 
   // Load initial profile
   useEffect(() => {
@@ -146,7 +149,29 @@ export default function PublicProfileTokenPage() {
       try {
         setIsLoading(true);
         setError(null);
-        const response = await fetch(`${API_URL}/profiles/public/share/${token}`);
+
+        // Check if this profile has already been viewed in this session
+        const viewedProfilesKey = 'nextStepZ_viewedProfiles';
+        const viewedProfiles = JSON.parse(sessionStorage.getItem(viewedProfilesKey) || '[]') as string[];
+        const hasAlreadyViewed = viewedProfiles.includes(shareToken);
+
+        // Pass auth token so backend can check if viewer is the profile owner
+        const authToken = getToken?.();
+        const headers: HeadersInit = {
+          'Content-Type': 'application/json',
+        };
+        if (authToken) {
+          headers['Authorization'] = `Bearer ${authToken}`;
+        }
+
+        // If already viewed in this session, add skipView to prevent duplicate counting
+        const url = hasAlreadyViewed
+          ? `${API_URL}/profiles/public/share/${shareToken}?skipView=true`
+          : `${API_URL}/profiles/public/share/${shareToken}`;
+
+        const response = await fetch(url, {
+          headers,
+        });
 
         if (!response.ok) {
           if (response.status === 404) {
@@ -159,6 +184,12 @@ export default function PublicProfileTokenPage() {
           return;
         }
 
+        // Mark this profile as viewed in this session (if not already)
+        if (!hasAlreadyViewed) {
+          viewedProfiles.push(shareToken);
+          sessionStorage.setItem(viewedProfilesKey, JSON.stringify(viewedProfiles));
+        }
+
         const data = await response.json();
         setPublicProfile(data);
       } catch (err) {
@@ -169,17 +200,17 @@ export default function PublicProfileTokenPage() {
       }
     };
 
-    if (token) {
+    if (shareToken) {
       loadPublicProfile();
     }
-  }, [token]);
+  }, [shareToken, getToken]);
 
   // Setup real-time updates listener
   useProfileUpdates(
-    token,
+    shareToken,
     (updatedData: unknown) => {
       if (!updatedData || typeof updatedData !== 'object') return;
-      
+
       const data = updatedData as PublicProfileData;
       // Deep merge để cập nhật chỉ những phần thay đổi
       setPublicProfile((prevProfile) => {
@@ -374,11 +405,10 @@ export default function PublicProfileTokenPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleAddFriend}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${
-                        isFriendRequested
-                          ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
-                          : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
-                      }`}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${isFriendRequested
+                        ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
+                        : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
+                        }`}
                       style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                     >
                       {isFriendRequested ? (
@@ -535,7 +565,7 @@ export default function PublicProfileTokenPage() {
                 <EmployerJobPostings
                   postings={employerProfile.jobPostings}
                   totalPostings={employerProfile.jobPostings.length}
-                  onViewAllClick={() => {}}
+                  onViewAllClick={() => { }}
                 />
               )}
 
@@ -556,7 +586,7 @@ export default function PublicProfileTokenPage() {
                   },
                 ]}
                 totalPosts={1}
-                onViewAllClick={() => {}}
+                onViewAllClick={() => { }}
               />
             </motion.div>
 
@@ -650,11 +680,10 @@ export default function PublicProfileTokenPage() {
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
                       onClick={handleAddFriend}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${
-                        isFriendRequested
-                          ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
-                          : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
-                      }`}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${isFriendRequested
+                        ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
+                        : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
+                        }`}
                       style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                     >
                       {isFriendRequested ? (
@@ -706,7 +735,7 @@ export default function PublicProfileTokenPage() {
                 data={{
                   phone: profile.phone,
                   birthDate: profile.birthDate,
-                  city: profile.city,
+                  city: profile.city || profile.province,
                   district: profile.district,
                   email: profile.email,
                 }}

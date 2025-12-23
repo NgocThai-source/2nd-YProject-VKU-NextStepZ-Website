@@ -1,12 +1,13 @@
 'use client';
 
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles, Star } from 'lucide-react';
+import { ArrowRight, Sparkles, Star, Zap, Users, Briefcase } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useEffect, useRef, useState } from 'react';
 
-const CountUpNumber = ({ value, duration = 2 }: { value: number; duration?: number }) => {
+// Animated counter component with intersection observer
+const CountUpNumber = ({ value, suffix = '', duration = 2 }: { value: number; suffix?: string; duration?: number }) => {
   const [count, setCount] = useState(0);
   const [isVisible, setIsVisible] = useState(false);
   const ref = useRef(null);
@@ -46,8 +47,64 @@ const CountUpNumber = ({ value, duration = 2 }: { value: number; duration?: numb
   }, [isVisible, value, duration]);
 
   return (
-    <div ref={ref} className="text-2xl md:text-3xl font-bold text-cyan-300">
-      {count}K+
+    <span ref={ref} className="tabular-nums">
+      {count.toLocaleString()}{suffix}
+    </span>
+  );
+};
+
+// Floating particles for premium effect - Client-side only to prevent hydration mismatch
+const FloatingParticles = () => {
+  const [mounted, setMounted] = useState(false);
+
+  // Only render on client to avoid hydration mismatch with random values
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Precompute all random values in useMemo with seeded-like approach
+  const particles = useMemo(() =>
+    Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      left: (i * 17 + 23) % 100, // Deterministic spread
+      delay: (i * 0.25) % 5,
+      duration: 8 + (i % 5),
+      size: 2 + (i % 4),
+      opacity1: 0.4 + ((i * 7) % 40) / 100,
+      opacity2: 0.4 + ((i * 11) % 40) / 100,
+      xOffset: ((i * 13) % 100) - 50,
+    })), []
+  );
+
+  if (!mounted) return null;
+
+  return (
+    <div className="particles-container">
+      {particles.map((particle) => (
+        <motion.div
+          key={particle.id}
+          className="absolute rounded-full"
+          style={{
+            left: `${particle.left}%`,
+            bottom: '-10px',
+            width: particle.size,
+            height: particle.size,
+            background: `linear-gradient(135deg, rgba(34, 211, 238, ${particle.opacity1}), rgba(59, 130, 246, ${particle.opacity2}))`,
+          }}
+          animate={{
+            y: [0, -800],
+            x: [0, particle.xOffset],
+            opacity: [0, 1, 1, 0],
+            scale: [0.5, 1, 0.8],
+          }}
+          transition={{
+            duration: particle.duration,
+            repeat: Infinity,
+            delay: particle.delay,
+            ease: 'linear',
+          }}
+        />
+      ))}
     </div>
   );
 };
@@ -65,14 +122,14 @@ export default function HeroSection() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.2,
-        delayChildren: 0.3,
+        staggerChildren: 0.15,
+        delayChildren: 0.2,
       },
     },
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
+    hidden: { opacity: 0, y: 30 },
     visible: {
       opacity: 1,
       y: 0,
@@ -80,236 +137,294 @@ export default function HeroSection() {
     },
   };
 
-  const floatingVariants = {
-    hidden: { opacity: 0, y: 30 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 1 },
-    },
-    animate: {
-      y: [0, 20, 0],
-      transition: {
-        duration: 4,
-        repeat: Infinity,
-      },
-    },
-  };
+
+
+  const floatingFeatures = [
+    { label: 'Job Map - Bản đồ việc làm', delay: 0, position: { top: '15%', left: '5%' } },
+    { label: 'AI Matching - Gợi ý thông minh', delay: 0.4, position: { top: '45%', right: '5%' } },
+    { label: 'Cộng đồng NextStepZ', delay: 0.8, position: { top: '75%', left: '10%' } },
+  ];
 
   return (
-    <section className="relative min-h-screen w-full overflow-hidden bg-linear-to-b from-slate-900 via-blue-900 to-slate-900 px-4 md:px-8 py-20 md:py-32">
-      {/* Animated Background Gradient */}
+    <section className="relative min-h-screen w-full overflow-hidden bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 px-4 md:px-8 py-20 md:py-28">
       <div className="absolute inset-0 overflow-hidden">
         <motion.div
-          className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          className="absolute -top-40 -right-40 w-[500px] h-[500px] rounded-full opacity-30"
+          style={{
+            background: 'radial-gradient(circle, rgba(34, 211, 238, 0.4) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+            filter: 'blur(60px)',
+          }}
           animate={{
-            x: [0, 50, 0],
-            y: [0, 30, 0],
+            x: [0, 80, 0],
+            y: [0, 60, 0],
+            scale: [1, 1.2, 1],
           }}
           transition={{
-            duration: 8,
+            duration: 15,
             repeat: Infinity,
             ease: 'easeInOut',
           }}
         />
         <motion.div
-          className="absolute -bottom-40 -left-40 w-80 h-80 bg-cyan-500 rounded-full mix-blend-multiply filter blur-3xl opacity-20"
+          className="absolute -bottom-60 -left-40 w-[600px] h-[600px] rounded-full opacity-25"
+          style={{
+            background: 'radial-gradient(circle, rgba(168, 85, 247, 0.4) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+            filter: 'blur(80px)',
+          }}
           animate={{
-            x: [0, -50, 0],
-            y: [0, -30, 0],
+            x: [0, -60, 0],
+            y: [0, -80, 0],
+            scale: [1.1, 1, 1.1],
           }}
           transition={{
-            duration: 8,
+            duration: 18,
             repeat: Infinity,
             ease: 'easeInOut',
             delay: 2,
           }}
         />
-      </div>
-
-      {/* Content Container */}
-      <div className="relative z-10 max-w-6xl mx-auto">
         <motion.div
-          className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center"
+          className="absolute top-1/3 left-1/3 w-[400px] h-[400px] rounded-full opacity-20"
+          style={{
+            background: 'radial-gradient(circle, rgba(34, 211, 238, 0.3) 0%, transparent 60%)',
+            filter: 'blur(50px)',
+          }}
+          animate={{
+            x: [0, 100, -50, 0],
+            y: [0, -50, 100, 0],
+          }}
+          transition={{
+            duration: 20,
+            repeat: Infinity,
+            ease: 'easeInOut',
+            delay: 1,
+          }}
+        />
+        <motion.div
+          className="absolute inset-0 opacity-[0.03]"
+          animate={{
+            backgroundPosition: ['0px 0px', '100px 100px'],
+          }}
+          transition={{
+            duration: 30,
+            repeat: Infinity,
+            ease: 'linear',
+          }}
+          style={{
+            backgroundImage: 'linear-gradient(90deg, #22d3ee 1px, transparent 1px), linear-gradient(#22d3ee 1px, transparent 1px)',
+            backgroundSize: '80px 80px',
+          }}
+        />
+        <FloatingParticles />
+      </div>
+      <div className="relative z-10 max-w-7xl mx-auto">
+        <motion.div
+          className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center min-h-[80vh]"
           variants={containerVariants}
           initial="hidden"
           animate="visible"
         >
-          {/* Left Content */}
-          <motion.div className="space-y-6" variants={itemVariants}>
-            {/* Badge */}
+          <motion.div className="space-y-8" variants={itemVariants}>
             <motion.div
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-500/10 border border-blue-400/30 backdrop-blur-sm w-fit"
+              className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full premium-badge backdrop-blur-xl w-fit"
               variants={itemVariants}
+              whileHover={{ scale: 1.05 }}
             >
-              <Sparkles className="w-4 h-4 text-cyan-400" />
-             <span className="text-sm font-medium text-cyan-300" style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}>
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 4, repeat: Infinity, ease: 'linear' }}
+              >
+                <Sparkles className="w-4 h-4 text-cyan-400" />
+              </motion.div>
+              <span
+                className="text-sm font-semibold bg-gradient-to-r from-cyan-300 to-blue-300 bg-clip-text text-transparent"
+                style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}
+              >
                 Tương lai bắt đầu từ đây
               </span>
-            </motion.div>
-
-            {/* Main Title - Logo */}
-            <motion.div className="space-y-3" variants={itemVariants}>
               <motion.div
-                animate={{
-                  y: [0, 10, 0],
-                }}
-                transition={{
-                  duration: 4,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
+                className="w-2 h-2 rounded-full bg-cyan-400"
+                animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            </motion.div>
+            <motion.div className="space-y-4" variants={itemVariants}>
+              <motion.div
+                animate={{ y: [0, -10, 0] }}
+                transition={{ duration: 5, repeat: Infinity, ease: 'easeInOut' }}
+                className="relative"
               >
                 <Image
                   src="/images/logofull1-transprent.png"
                   alt="NextStepZ Logo"
-                  width={384}
-                  height={128}
-                  sizes="(max-width: 768px) 320px, 384px"
-                  className="w-80 h-auto md:w-96 drop-shadow-lg"
+                  width={420}
+                  height={140}
+                  sizes="(max-width: 768px) 320px, 420px"
+                  className="w-80 h-auto md:w-[420px] drop-shadow-2xl"
                   priority
                 />
+                <div
+                  className="absolute inset-0 -z-10 blur-3xl opacity-30"
+                  style={{
+                    background: 'linear-gradient(135deg, rgba(34, 211, 238, 0.5), rgba(59, 130, 246, 0.5))',
+                  }}
+                />
               </motion.div>
-              <h2 className="text-xl md:text-3xl font-bold bg-linear-to-r from-cyan-300 via-blue-400 to-purple-400 bg-clip-text text-transparent ml-1.5" style={{ fontFamily: "'Poppins Medium Italic', sans-serif" }}>
+              <h2
+                className="text-xl md:text-3xl font-bold gradient-text-premium ml-1"
+                style={{ fontFamily: "'Poppins Medium Italic', sans-serif" }}
+              >
                 Your First Step to the Future
               </h2>
             </motion.div>
-
-            {/* Description */}
             <motion.p
-              className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-xl" style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+              className="text-lg md:text-xl text-gray-300 leading-relaxed max-w-xl"
+              style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               variants={itemVariants}
             >
-              Kết nối sinh viên, nhà tuyển dụng và cựu sinh viên trong cùng một hệ sinh thái công nghệ hiện đại.
-Nơi bạn tìm thấy cơ hội, rèn luyện kỹ năng và kiến tạo tương lai sự nghiệp của chính mình.
+              Kết nối <span className="text-cyan-300 font-semibold">sinh viên</span>, <span className="text-cyan-300 font-semibold">nhà tuyển dụng</span> và <span className="text-cyan-300 font-semibold">cựu sinh viên</span> trong cùng một hệ sinh thái công nghệ hiện đại.
+              <br className="hidden md:block" />
+              Nơi bạn tìm thấy cơ hội, rèn luyện kỹ năng và kiến tạo tương lai sự nghiệp.
             </motion.p>
-
-            {/* CTA Buttons */}
-            <motion.div className="flex flex-col sm:flex-row gap-4 pt-4" variants={itemVariants}>
+            <motion.div className="flex flex-col sm:flex-row gap-4 pt-2" variants={itemVariants}>
               <Link href="/auth">
                 <motion.button
-                  className="px-8 py-4 rounded-lg bg-linear-to-r from-cyan-400 to-blue-500 text-white font-semibold flex items-center gap-2 hover:shadow-lg hover:shadow-blue-500/50 transition-all duration-300 group" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-                  whileHover={{ scale: 1.05, translateY: -2 }}
+                  className="group relative px-8 py-4 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 text-white font-semibold flex items-center justify-center gap-3 overflow-hidden"
+                  style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}
+                  whileHover={{ scale: 1.03, y: -2 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  Khám Phá Ngay
-                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  <motion.div
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                    animate={{ x: ['-200%', '200%'] }}
+                    transition={{ duration: 2.5, repeat: Infinity, ease: 'linear' }}
+                  />
+                  <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-cyan-400/20 to-blue-400/20 blur-xl" />
+                  <span className="relative z-10 flex items-center gap-2">
+                    <Zap className="w-5 h-5" />
+                    Khám Phá Ngay
+                    <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                  </span>
                 </motion.button>
               </Link>
+
               <motion.button
-                className="px-8 py-4 rounded-lg border-2 border-cyan-400/50 text-cyan-300 font-semibold hover:bg-cyan-400/10 transition-all duration-300" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-                whileHover={{ scale: 1.05, translateY: -2 }}
+                className="group px-8 py-4 rounded-xl glass-button text-cyan-300 font-semibold flex items-center justify-center gap-2"
+                style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}
+                whileHover={{ scale: 1.03, y: -2 }}
                 whileTap={{ scale: 0.98 }}
                 onClick={handleLearnMore}
               >
                 Tìm Hiểu Thêm
+                <motion.div
+                  animate={{ y: [0, 3, 0] }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+                  </svg>
+                </motion.div>
               </motion.button>
             </motion.div>
 
-            
-          </motion.div>
 
-          {/* Right Visual */}
-          <motion.div className="relative h-96 md:h-full" variants={itemVariants}>
-            {/* Animated Circles Background */}
+          </motion.div>
+          <motion.div
+            className="relative h-[500px] md:h-[600px] hidden lg:block"
+            variants={itemVariants}
+          >
             <motion.div
               className="absolute inset-0 flex items-center justify-center"
-              variants={floatingVariants}
             >
-              {/* Large circle */}
               <motion.div
-                className="absolute w-64 h-64 rounded-full bg-linear-to-br from-blue-500 to-purple-600 opacity-20 blur-3xl"
-                animate={{
-                  scale: [1, 1.1, 1],
-                }}
-                transition={{
-                  duration: 5,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-
-              {/* Medium circle */}
+                className="absolute w-[450px] h-[450px] rounded-full border border-cyan-500/20"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
+              >
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3 h-3 rounded-full bg-cyan-400 glow-cyan" />
+              </motion.div>
               <motion.div
-                className="absolute w-48 h-48 rounded-full bg-linear-to-br from-cyan-400 to-blue-500 opacity-30 blur-2xl"
-                animate={{
-                  scale: [1.1, 1, 1.1],
-                }}
-                transition={{
-                  duration: 6,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                  delay: 1,
-                }}
-              />
-
-              {/* Small circle */}
+                className="absolute w-[350px] h-[350px] rounded-full border border-purple-500/20"
+                animate={{ rotate: -360 }}
+                transition={{ duration: 30, repeat: Infinity, ease: 'linear' }}
+              >
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-2.5 h-2.5 rounded-full bg-purple-400 glow-purple" />
+              </motion.div>
               <motion.div
-                className="absolute w-32 h-32 rounded-full bg-linear-to-br from-pink-400 to-cyan-400 opacity-40 blur-xl"
-                animate={{
-                  x: [0, 20, -20, 0],
-                  y: [0, -20, 20, 0],
-                }}
-                transition={{
-                  duration: 7,
-                  repeat: Infinity,
-                  ease: 'easeInOut',
-                }}
-              />
-            </motion.div>
-
-            {/* Floating Elements */}
-            {[
-              { label: 'Job Map (bản đồ việc làm)', delay: 0 },
-              { label: 'Gợi ý việc làm thông minh (AI Matching)', delay: 0.3 },
-              { label: 'Cộng đồng đến từ NextStepZ', delay: 0.6 },
-            ].map((item, idx) => (
+                className="absolute w-[250px] h-[250px] rounded-full border border-blue-500/20"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
+              >
+                <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-blue-400 glow-blue" />
+              </motion.div>
               <motion.div
-                key={idx}
-                className="absolute px-4 py-2 rounded-lg bg-white/5 border border-cyan-400/30 backdrop-blur-md text-sm text-cyan-300 font-medium"
+                className="absolute w-40 h-40 rounded-full"
+                style={{
+                  background: 'radial-gradient(circle, rgba(34, 211, 238, 0.3) 0%, rgba(59, 130, 246, 0.2) 50%, transparent 70%)',
+                  filter: 'blur(20px)',
+                }}
                 animate={{
-                  y: [0, -20, 0],
-                  opacity: [0.5, 1, 0.5],
+                  scale: [1, 1.3, 1],
+                  opacity: [0.5, 0.8, 0.5],
                 }}
                 transition={{
                   duration: 4,
                   repeat: Infinity,
-                  delay: item.delay,
+                  ease: 'easeInOut',
                 }}
-                style={{
-                  top: `${20 + idx * 30}%`,
-                  left: idx % 2 === 0 ? '10%' : '60%',
-                  fontFamily: "'Poppins SemiBold', sans-serif",
+              />
+            </motion.div>
+            {floatingFeatures.map((feature, idx) => (
+              <motion.div
+                key={idx}
+                className="absolute glass-card-strong px-5 py-3 rounded-xl"
+                style={feature.position}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{
+                  opacity: 1,
+                  y: [0, -15, 0],
                 }}
+                transition={{
+                  opacity: { duration: 0.5, delay: 1 + feature.delay },
+                  y: { duration: 4, repeat: Infinity, delay: feature.delay },
+                }}
+                whileHover={{ scale: 1.05, zIndex: 10 }}
               >
-                <Star className="w-4 h-4 inline mr-2" />{item.label}
+                <div className="flex items-center gap-2">
+                  <motion.div
+                    animate={{ scale: [1, 1.2, 1] }}
+                    transition={{ duration: 2, repeat: Infinity, delay: idx * 0.3 }}
+                  >
+                    <Star className="w-4 h-4 text-cyan-400" />
+                  </motion.div>
+                  <span
+                    className="text-sm font-medium text-cyan-300"
+                    style={{ fontFamily: "'Poppins SemiBold', sans-serif" }}
+                  >
+                    {feature.label}
+                  </span>
+                </div>
               </motion.div>
             ))}
           </motion.div>
         </motion.div>
       </div>
-
-      {/* Scroll Indicator */}
       <motion.div
         className="absolute bottom-8 left-1/2 transform -translate-x-1/2 pointer-events-none"
-        animate={{ y: [0, 10, 0] }}
+        animate={{ y: [0, 8, 0], opacity: [0.5, 1, 0.5] }}
         transition={{ duration: 2, repeat: Infinity }}
       >
         <div className="flex flex-col items-center gap-2">
-          <span className="text-sm text-gray-400">Scroll để khám phá</span>
-          <svg
-            className="w-6 h-6 text-cyan-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M19 14l-7 7m0 0l-7-7m7 7V3"
+          <span className="text-sm text-gray-400" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+            Scroll để khám phá
+          </span>
+          <div className="w-6 h-10 rounded-full border-2 border-cyan-400/50 flex justify-center p-2">
+            <motion.div
+              className="w-1.5 h-1.5 rounded-full bg-cyan-400"
+              animate={{ y: [0, 12, 0] }}
+              transition={{ duration: 1.5, repeat: Infinity }}
             />
-          </svg>
+          </div>
         </div>
       </motion.div>
     </section>

@@ -1,8 +1,6 @@
 <p align="center">
-  <img src="./logofull1-transprent.png" alt="NextStepZ Logo" width="180"/>
+  <img src="./logofull1-transprent.png" alt="NextStepZ Logo" width="500"/>
 </p>
-
-<h1 align="center">NextStepZ</h1>
 
 <p align="center">
   <strong>Your First Step to the Future</strong>

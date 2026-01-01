@@ -5,13 +5,14 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Share2,
   Sparkles,
   Eye,
   CheckCircle2,
   Maximize2,
   Minimize2,
   UserPlus,
+  AlertCircle,
+  Save,
 } from 'lucide-react';
 import TemplateGallery from '@/components/portfolio/template-gallery';
 import PortfolioEditor from '@/components/portfolio/portfolio-editor';
@@ -20,8 +21,8 @@ import { useAuth } from '@/lib/auth-context';
 import { useSavedPortfolio } from '@/lib/saved-portfolio-context';
 
 export default function PortfolioPage() {
-  const { isLoggedIn, isLoading } = useAuth();
-  const { savePortfolio } = useSavedPortfolio();
+  const { user, isLoggedIn, isLoading } = useAuth();
+  const { savePortfolio, canSave, error: saveError } = useSavedPortfolio();
   const [portfolioData, setPortfolioData] = useState({
     title: 'Frontend Developer',
     headline: 'Đam mê xây dựng trải nghiệm số mượt mà, trực quan và hiệu quả.',
@@ -60,6 +61,7 @@ export default function PortfolioPage() {
   const [showResponsiveWarning, setShowResponsiveWarning] = useState(false);
   const [isResponsiveDevice, setIsResponsiveDevice] = useState(false);
   const [showSaveNotification, setShowSaveNotification] = useState(false);
+  const [saveNotificationType, setSaveNotificationType] = useState<'success' | 'employer' | 'notLoggedIn'>('success');
 
   // Handle portfolio update
   const handlePortfolioUpdate = (field: string, value: unknown) => {
@@ -84,12 +86,32 @@ export default function PortfolioPage() {
     console.log('Sharing portfolio...');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    // Check if user is not logged in
+    if (!isLoggedIn) {
+      setSaveNotificationType('notLoggedIn');
+      setShowSaveNotification(true);
+      setTimeout(() => {
+        setShowSaveNotification(false);
+      }, 3000);
+      return;
+    }
+
+    // Check if user is employer (not student)
+    if (!canSave) {
+      setSaveNotificationType('employer');
+      setShowSaveNotification(true);
+      setTimeout(() => {
+        setShowSaveNotification(false);
+      }, 3000);
+      return;
+    }
+
     try {
       setIsSaving(true);
       const portfolioName = portfolioData.title || 'Hồ sơ chưa có tiêu đề';
-      
-      savePortfolio({
+
+      const result = await savePortfolio({
         name: portfolioName,
         title: portfolioData.title,
         headline: portfolioData.headline,
@@ -103,12 +125,13 @@ export default function PortfolioPage() {
         selectedTemplate: portfolioData.selectedTemplate,
       });
 
-      setShowSaveNotification(true);
-      
-      // Auto-hide notification after 3 seconds
-      setTimeout(() => {
-        setShowSaveNotification(false);
-      }, 3000);
+      if (result) {
+        setSaveNotificationType('success');
+        setShowSaveNotification(true);
+        setTimeout(() => {
+          setShowSaveNotification(false);
+        }, 3000);
+      }
 
       setIsSaving(false);
     } catch (error) {
@@ -151,7 +174,7 @@ export default function PortfolioPage() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // If user is not logged in, show authentication required screen
+  // Loading state only
   if (isLoading) {
     return (
       <div className="h-screen bg-slate-950 flex items-center justify-center">
@@ -160,179 +183,7 @@ export default function PortfolioPage() {
     );
   }
 
-  if (!isLoggedIn) {
-    return (
-      <>
-        <div className="h-screen bg-slate-950 flex flex-col items-center justify-center px-4">
-          <motion.div
-            initial={{ scale: 0.8, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, type: 'spring', stiffness: 300, damping: 25 }}
-            className="w-full max-w-md space-y-8 text-center"
-          >
-            {/* Icon */}
-            <motion.div
-              animate={{ scale: [1, 1.05, 1] }}
-              transition={{ duration: 3, repeat: Infinity }}
-              className="flex justify-center"
-            >
-              <div className="w-20 h-20 flex items-center justify-center">
-                <Image 
-                  src="/images/logo-icon.png" 
-                  alt="NextStepZ Logo" 
-                  width={80} 
-                  height={80} 
-                  className="w-20 h-20"
-                  priority={false}
-                />
-              </div>
-            </motion.div>
-
-            {/* Title & Subtitle */}
-            <div className="space-y-3">
-              <h1 className="text-4xl font-bold text-white" style={{ fontFamily: "'Exo 2 ExtraBold', sans-serif" }}>
-                Sáng Tạo Hồ Sơ Của Bạn
-              </h1>
-              <p className="text-slate-400 text-lg" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-                Đăng nhập hoặc đăng ký để bắt đầu xây dựng hồ sơ chuyên nghiệp của bạn
-              </p>
-            </div>
-
-            {/* Divider */}
-            <div className="h-px bg-linear-to-r from-transparent via-slate-700 to-transparent" />
-
-            {/* Benefits */}
-            <div className="space-y-3 text-left bg-slate-900/50 rounded-xl p-6 border border-slate-800">
-              <p className="text-xs font-semibold text-cyan-400 uppercase tracking-wider">Những lợi ích khi tạo hồ sơ cá nhân :</p>
-              <ul className="space-y-2 text-sm text-slate-300">
-                <li className="flex items-center gap-3">
-                  <span className="text-cyan-400 font-bold">✓</span>
-                  <span>Tạo CV chuyên nghiệp với các mẫu đẹp</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-cyan-400 font-bold">✓</span>
-                  <span>Xem trước CV theo thời gian thực</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-cyan-400 font-bold">✓</span>
-                  <span>Chia sẻ hồ sơ của bạn với nhà tuyển dụng</span>
-                </li>
-                <li className="flex items-center gap-3">
-                  <span className="text-cyan-400 font-bold">✓</span>
-                  <span>Tự động lưu các thay đổi của bạn</span>
-                </li>
-              </ul>
-            </div>
-
-            {/* Buttons */}
-            <div className="space-y-3">
-              
-
-              <Link
-                href="/auth"
-                className="w-full px-6 py-3 rounded-xl border border-cyan-500/50 bg-cyan-500/10 text-cyan-300 font-semibold text-base hover:bg-cyan-500/20 transition-all active:scale-95 transform inline-flex items-center justify-center gap-2"
-                style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}
-              >
-                <UserPlus className="w-5 h-5" />
-                Đăng Ký Miễn Phí
-              </Link>
-            </div>
-
-            {/* Footer Message */}
-            <p className="text-xm text-slate-500" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-              Bạn đã có tài khoản? <Link href="/auth" className="text-cyan-400 hover:text-cyan-300 font-semibold">Đăng nhập ngay</Link>
-            </p>
-          </motion.div>
-        </div>
-
-        {/* Responsive Device Warning Modal - Show even on login screen */}
-        {showResponsiveWarning && isResponsiveDevice && (
-          <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4">
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 20 }}
-              transition={{ duration: 0.4, type: 'spring', stiffness: 300, damping: 25 }}
-              className="w-full max-w-sm bg-linear-to-br from-slate-900 via-slate-900 to-slate-950 rounded-2xl border border-cyan-500/20 shadow-2xl shadow-cyan-500/10 overflow-hidden"
-            >
-
-              {/* Content */}
-              <div className="p-8 sm:p-10 text-center space-y-6">
-                {/* Icon */}
-                <motion.div
-                  animate={{ scale: [1, 1.1, 1], rotate: [0, 5, -5, 0] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                  className="flex justify-center"
-                >
-                  <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-                    <Image 
-                      src="/images/logo-icon.png" 
-                      alt="NextStepZ Logo" 
-                      width={80} 
-                      height={80} 
-                      className="w-16 h-16 sm:w-16 sm:h-16"
-                      priority={false}
-                    />
-                  </div>
-                </motion.div>
-
-                {/* Title */}
-                <div className="space-y-2">
-                  <h2 className="text-2xl sm:text-3xl font-bold text-white" style={{ fontFamily: "'Exo 2 ExtraBold', sans-serif" }}>
-                    Trải Nghiệm Tối Ưu
-                  </h2>
-                  <div className="h-1 w-12 bg-linear-to-r from-cyan-500 to-blue-500 mx-auto rounded-full" />
-                </div>
-
-                {/* Message */}
-                <div className="space-y-2">
-                  <p className="text-lg sm:text-xl text-cyan-300 font-semibold" style={{ fontFamily: "'Exo 2 SemiBold', sans-serif" }}>
-                    Để đảm bảo trải nghiệm tối ưu và tốt nhất
-                  </p>
-                  <p className="text-slate-400 text-sm sm:text-base leading-relaxed" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-                    Vui lòng truy cập <span className="font-semibold text-cyan-300">NextStepZ</span> bằng <span className="font-semibold text-cyan-300">máy tính</span> để có trải nghiệm đầy đủ và hiệu quả nhất.
-                  </p>
-                </div>
-
-                {/* Features list */}
-                <div className="bg-slate-800/50 border border-slate-700/50 rounded-lg p-4 space-y-2 text-left">
-                  <p className="text-xs sm:text-sm text-slate-400 font-medium uppercase tracking-wider mb-3">Lợi ích khi truy cập bằng máy tính:</p>
-                  <ul className="space-y-2 text-sm text-slate-300">
-                    <li className="flex items-center gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      <span>Chỉnh sửa toàn bộ thông tin dễ dàng</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      <span>Xem trước CV theo thời gian thực</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <span className="text-cyan-400">✓</span>
-                      <span>Giao diện đầy đủ và chuyên nghiệp</span>
-                    </li>
-                  </ul>
-                </div>
-
-                {/* CTA Buttons */}
-                <div className="pt-2 space-y-3">
-                  <button
-                    onClick={() => setShowResponsiveWarning(false)}
-                    className="w-full px-6 py-3 rounded-xl bg-linear-to-r from-cyan-500 to-blue-500 text-white font-bold text-base sm:text-lg hover:shadow-lg hover:shadow-cyan-500/30 transition-all active:scale-95 transform"
-                    style={{ fontFamily: "'Exo 2 Bold', sans-serif" }}
-                  >
-                    Tôi hiểu, tiếp tục
-                  </button>
-                </div>
-
-              </div>
-
-              
-            </motion.div>
-          </div>
-        )}
-      </>
-    );
-  }
+  // Non-logged-in users can browse and try features (save shows notification)
 
   return (
     <div className="h-screen bg-slate-950 flex flex-col overflow-hidden">
@@ -390,14 +241,6 @@ export default function PortfolioPage() {
             <span className="hidden sm:inline">Lưu Hồ Sơ</span>
           </button>
 
-          <button
-            onClick={handleShare}
-            className="px-4 py-1.5 rounded-lg bg-linear-to-r from-cyan-500 to-blue-500 text-white font-semibold hover:shadow-lg hover:shadow-cyan-500/20 transition-all flex items-center gap-2 text-sm"
-            style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-          >
-            <Share2 className="w-4 h-4" />
-            <span className="hidden sm:inline">Chia Sẻ</span>
-          </button>
         </div>
       </div>
 
@@ -443,10 +286,10 @@ export default function PortfolioPage() {
 
           {/* Preview Content - No Padding, Full Size */}
           <div className="flex-1 overflow-hidden bg-linear-to-b from-slate-900/20 to-slate-950/50">
-            <TemplatePreview 
+            <TemplatePreview
               key={`${portfolioData.selectedTemplate}-${JSON.stringify(portfolioData.education)}-${JSON.stringify(portfolioData.experience)}-${JSON.stringify(portfolioData.skills)}-${JSON.stringify(portfolioData.projects)}`}
-              templateId={portfolioData.selectedTemplate} 
-              data={portfolioData} 
+              templateId={portfolioData.selectedTemplate}
+              data={portfolioData}
             />
           </div>
         </motion.div>
@@ -457,22 +300,20 @@ export default function PortfolioPage() {
           <div className="flex gap-2 px-4 py-2 border-b border-slate-800/50 bg-slate-900/50 backdrop-blur-sm">
             <button
               onClick={() => setActiveTab('edit')}
-              className={`flex-1 py-2 rounded-lg font-medium text-xs transition-all ${
-                activeTab === 'edit'
-                  ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-white'
-                  : 'border border-slate-700/50 text-slate-300 hover:bg-slate-800/50'
-              }`}
+              className={`flex-1 py-2 rounded-lg font-medium text-xs transition-all ${activeTab === 'edit'
+                ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-white'
+                : 'border border-slate-700/50 text-slate-300 hover:bg-slate-800/50'
+                }`}
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
             >
               Chỉnh Sửa
             </button>
             <button
               onClick={() => setActiveTab('preview')}
-              className={`flex-1 py-2 rounded-lg font-medium text-xs transition-all ${
-                activeTab === 'preview'
-                  ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-white'
-                  : 'border border-slate-700/50 text-slate-300 hover:bg-slate-800/50'
-              }`}
+              className={`flex-1 py-2 rounded-lg font-medium text-xs transition-all ${activeTab === 'preview'
+                ? 'bg-linear-to-r from-cyan-500 to-blue-500 text-white'
+                : 'border border-slate-700/50 text-slate-300 hover:bg-slate-800/50'
+                }`}
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
             >
               Xem Trước
@@ -487,10 +328,10 @@ export default function PortfolioPage() {
               </div>
             ) : (
               <div className="h-full overflow-hidden">
-                <TemplatePreview 
+                <TemplatePreview
                   key={`mobile-${portfolioData.selectedTemplate}-${JSON.stringify(portfolioData.education)}-${JSON.stringify(portfolioData.experience)}-${JSON.stringify(portfolioData.skills)}-${JSON.stringify(portfolioData.projects)}`}
-                  templateId={portfolioData.selectedTemplate} 
-                  data={portfolioData} 
+                  templateId={portfolioData.selectedTemplate}
+                  data={portfolioData}
                 />
               </div>
             )}
@@ -537,10 +378,10 @@ export default function PortfolioPage() {
 
           {/* Content */}
           <div className="flex-1 overflow-hidden">
-            <TemplatePreview 
+            <TemplatePreview
               key={`fullscreen-${portfolioData.selectedTemplate}-${JSON.stringify(portfolioData.education)}-${JSON.stringify(portfolioData.experience)}-${JSON.stringify(portfolioData.skills)}-${JSON.stringify(portfolioData.projects)}`}
-              templateId={portfolioData.selectedTemplate} 
-              data={portfolioData} 
+              templateId={portfolioData.selectedTemplate}
+              data={portfolioData}
             />
           </div>
         </div>
@@ -566,11 +407,11 @@ export default function PortfolioPage() {
                 className="flex justify-center"
               >
                 <div className="w-16 h-16 sm:w-20 sm:h-20 flex items-center justify-center">
-                  <Image 
-                    src="/images/logo-icon.png" 
-                    alt="NextStepZ Logo" 
-                    width={80} 
-                    height={80} 
+                  <Image
+                    src="/images/logo-icon.png"
+                    alt="NextStepZ Logo"
+                    width={80}
+                    height={80}
                     className="w-16 h-16 sm:w-16 sm:h-16"
                     priority={false}
                   />
@@ -627,12 +468,12 @@ export default function PortfolioPage() {
 
             </div>
 
-            
+
           </motion.div>
         </div>
       )}
 
-      {/* Save Success Notification */}
+      {/* Save Notification */}
       <AnimatePresence>
         {showSaveNotification && (
           <motion.div
@@ -642,19 +483,47 @@ export default function PortfolioPage() {
             transition={{ duration: 0.3, type: 'spring', stiffness: 300 }}
             className="fixed top-4 right-4 z-50 max-w-sm"
           >
-            <div className="bg-linear-to-r from-emerald-500 to-teal-500 text-white rounded-lg p-4 shadow-lg shadow-emerald-500/20 border border-emerald-400/30 flex items-center gap-3">
-              <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-              <div>
-                <p className="font-semibold text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-                  Thành công!
-                </p>
-                <p className="text-xs opacity-90" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
-                  Hồ sơ cá nhân của bạn đã được lưu.
-                </p>
+            {saveNotificationType === 'success' && (
+              <div className="bg-linear-to-r from-emerald-500 to-teal-500 text-white rounded-lg p-4 shadow-lg shadow-emerald-500/20 border border-emerald-400/30 flex items-center gap-3">
+                <svg className="w-5 h-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <div>
+                  <p className="font-semibold text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                    Thành công!
+                  </p>
+                  <p className="text-xs opacity-90" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                    Hồ sơ cá nhân của bạn đã được lưu.
+                  </p>
+                </div>
               </div>
-            </div>
+            )}
+            {saveNotificationType === 'employer' && (
+              <div className="bg-linear-to-r from-amber-500 to-orange-500 text-white rounded-lg p-4 shadow-lg shadow-amber-500/20 border border-amber-400/30 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <div>
+                  <p className="font-semibold text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                    Không thể lưu
+                  </p>
+                  <p className="text-xs opacity-90" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                    Chức năng này chỉ dành cho tài khoản Sinh Viên.
+                  </p>
+                </div>
+              </div>
+            )}
+            {saveNotificationType === 'notLoggedIn' && (
+              <div className="bg-linear-to-r from-blue-500 to-cyan-500 text-white rounded-lg p-4 shadow-lg shadow-blue-500/20 border border-blue-400/30 flex items-center gap-3">
+                <AlertCircle className="w-5 h-5 shrink-0" />
+                <div>
+                  <p className="font-semibold text-sm" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                    Vui lòng đăng nhập
+                  </p>
+                  <p className="text-xs opacity-90" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
+                    Vui lòng đăng nhập để sử dụng chức năng này.
+                  </p>
+                </div>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

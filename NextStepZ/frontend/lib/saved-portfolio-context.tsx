@@ -1,6 +1,8 @@
 'use client';
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import { useAuth } from './auth-context';
+import { API_URL } from './api';
 
 export interface SavedPortfolio {
   id: string;
@@ -61,318 +63,168 @@ export interface SavedPortfolio {
 export interface SavedPortfolioContextType {
   savedPortfolios: SavedPortfolio[];
   isLoading: boolean;
-  savePortfolio: (portfolio: Omit<SavedPortfolio, 'id' | 'savedAt' | 'updatedAt'> & { id?: string }) => SavedPortfolio;
+  error: string | null;
+  canSave: boolean; // Only true for 'user' (Student) role
+  savePortfolio: (portfolio: Omit<SavedPortfolio, 'id' | 'savedAt' | 'updatedAt'> & { id?: string }) => Promise<SavedPortfolio | null>;
   getSavedPortfolios: () => SavedPortfolio[];
   getSavedPortfolioById: (id: string) => SavedPortfolio | null;
-  deletePortfolio: (id: string) => void;
-  updatePortfolio: (id: string, portfolio: Partial<SavedPortfolio>) => void;
+  deletePortfolio: (id: string) => Promise<boolean>;
+  updatePortfolio: (id: string, portfolio: Partial<SavedPortfolio>) => Promise<boolean>;
+  refreshPortfolios: () => Promise<void>;
 }
 
 const SavedPortfolioContext = createContext<SavedPortfolioContextType | undefined>(undefined);
 
-const STORAGE_KEY = 'savedPortfolios';
+// Demo portfolio for preview (employers and non-logged-in users)
+const DEMO_PORTFOLIO: SavedPortfolio = {
+  id: 'demo-portfolio',
+  name: 'Demo Portfolio',
+  title: 'Senior Frontend Developer',
+  headline: 'Chuyên gia React & Next.js với 5+ năm kinh nghiệm xây dựng ứng dụng web hiệu suất cao.',
+  summary: 'Đây là hồ sơ mẫu để xem trước. Đăng nhập với tài khoản Sinh viên để lưu hồ sơ của riêng bạn.',
+  photoUrl: '',
+  contactJson: {
+    email: 'demo@example.com',
+    phone: '+84 912 345 678',
+    city: 'TP. Hồ Chí Minh',
+    district: 'Quận 1',
+  },
+  skills: {
+    selected: [
+      { id: 'skill-1', name: 'React', level: 'advanced' },
+      { id: 'skill-2', name: 'TypeScript', level: 'advanced' },
+      { id: 'skill-3', name: 'Next.js', level: 'advanced' },
+    ],
+  },
+  experience: { items: [] },
+  education: { items: [] },
+  projects: { items: [] },
+  selectedTemplate: 1,
+  savedAt: new Date().toISOString(),
+  updatedAt: new Date().toISOString(),
+};
 
 export function SavedPortfolioProvider({ children }: { children: React.ReactNode }) {
+  const { user, isLoggedIn, getToken } = useAuth();
   const [savedPortfolios, setSavedPortfolios] = useState<SavedPortfolio[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load from localStorage on mount
-  useEffect(() => {
+  // Only students (role: 'user') can save
+  const canSave = isLoggedIn && user?.role === 'user';
+
+  // Helper to make authenticated API calls
+  const fetchWithAuth = useCallback(async (endpoint: string, options: RequestInit = {}) => {
+    const token = getToken?.();
+    if (!token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        ...options.headers,
+      },
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `API Error: ${response.status}`);
+    }
+
+    return response.json();
+  }, [getToken]);
+
+  // Load portfolios from API or show demo for non-students
+  const loadPortfolios = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      const stored = localStorage.getItem(STORAGE_KEY);
-      let portfolios: SavedPortfolio[] = [];
-
-      if (stored) {
-        portfolios = JSON.parse(stored);
-        
-        // Migrate old empty "hello" portfolio to new one with full data
-        const helloPortfolio = portfolios.find(p => p.name === 'hello');
-        if (helloPortfolio && (!helloPortfolio.skills?.selected || helloPortfolio.skills.selected.length === 0)) {
-          // Update the old hello portfolio with full data
-          const updatedHello: SavedPortfolio = {
-            ...helloPortfolio,
-            name: 'Hello Web Studio',
-            title: 'Senior Frontend Developer',
-            headline: 'Chuyên gia React & Next.js với 5+ năm kinh nghiệm xây dựng ứng dụng web hiệu suất cao.',
-            summary: 'Tôi là một Senior Frontend Developer với kinh nghiệm sâu sắc trong việc xây dựng các ứng dụng web hiện đại, responsive và hiệu quả. Đam mê tìm hiểu công nghệ mới, tối ưu hiệu suất và tạo ra trải nghiệm người dùng tuyệt vời. Đã làm việc với các công ty công nghệ hàng đầu và startup nổi bật.',
-            contactJson: {
-              ...helloPortfolio.contactJson,
-              email: 'hello@webstudio.com',
-              phone: '+84 912 345 678',
-              facebook: 'facebook.com/hellodev',
-              github: 'github.com/hellodev',
-            },
-            skills: {
-              selected: [
-                { id: 'skill-1', name: 'React', level: 'advanced' },
-                { id: 'skill-2', name: 'TypeScript', level: 'advanced' },
-                { id: 'skill-3', name: 'Next.js', level: 'advanced' },
-                { id: 'skill-4', name: 'Tailwind CSS', level: 'advanced' },
-                { id: 'skill-5', name: 'JavaScript', level: 'advanced' },
-                { id: 'skill-6', name: 'Node.js', level: 'intermediate' },
-                { id: 'skill-7', name: 'Redux', level: 'advanced' },
-                { id: 'skill-8', name: 'CSS/SCSS', level: 'advanced' },
-              ],
-            },
-            experience: {
-              items: [
-                {
-                  id: 'exp-1',
-                  title: 'Senior Frontend Developer',
-                  company: 'Tech Innovations Vietnam',
-                  startDate: '2022-01-15',
-                  description: 'Dẫn dắt đội ngũ 5 frontend developers, xây dựng các ứng dụng enterprise-scale bằng React và Next.js. Tối ưu performance, cải thiện Lighthouse score từ 45 lên 95.',
-                  isCurrent: true,
-                },
-                {
-                  id: 'exp-2',
-                  title: 'Middle Frontend Developer',
-                  company: 'FinTech Solutions Asia',
-                  startDate: '2020-06-01',
-                  endDate: '2021-12-31',
-                  description: 'Phát triển các tính năng dashboard thanh toán, quản lý ví điện tử. Làm việc với TypeScript, Redux, và API integration.',
-                  isCurrent: false,
-                },
-                {
-                  id: 'exp-3',
-                  title: 'Junior Frontend Developer',
-                  company: 'Creative Studio',
-                  startDate: '2019-03-01',
-                  endDate: '2020-05-31',
-                  description: 'Xây dựng responsive UI components, làm việc với Figma design team. Học hỏi best practices về code quality và collaboration.',
-                  isCurrent: false,
-                },
-              ],
-            },
-            education: {
-              items: [
-                {
-                  id: 'edu-1',
-                  school: 'Đại học Bách Khoa TP. Hồ Chí Minh',
-                  degree: 'Cử nhân',
-                  field: 'Công nghệ Thông tin',
-                  graduationYear: '2019',
-                },
-                {
-                  id: 'edu-2',
-                  school: 'Coursera',
-                  degree: 'Chứng chỉ',
-                  field: 'Advanced React Patterns',
-                  graduationYear: '2021',
-                },
-                {
-                  id: 'edu-3',
-                  school: 'Udemy',
-                  degree: 'Chứng chỉ',
-                  field: 'Next.js & Performance Optimization',
-                  graduationYear: '2023',
-                },
-              ],
-            },
-            projects: {
-              items: [
-                {
-                  id: 'proj-1',
-                  title: 'E-commerce Platform',
-                  description: 'Xây dựng nền tảng thương mại điện tử với React, Next.js, Redux. Support 100k+ users, xử lý 1000+ requests/second.',
-                  url: 'https://ecommerce-demo.com',
-                  imageUrl: '',
-                },
-                {
-                  id: 'proj-2',
-                  title: 'Real-time Dashboard',
-                  description: 'Tạo dashboard analytics real-time với WebSocket, Chart.js. Hiển thị dữ liệu từ 50+ API endpoints.',
-                  url: 'https://dashboard-demo.com',
-                  imageUrl: '',
-                },
-                {
-                  id: 'proj-3',
-                  title: 'Mobile-first PWA',
-                  description: 'Phát triển Progressive Web App với offline capability, push notifications. Lighthouse score 95+.',
-                  url: 'https://pwa-demo.com',
-                  imageUrl: '',
-                },
-              ],
-            },
-            updatedAt: new Date().toISOString(),
-          };
-          
-          portfolios = portfolios.map(p => p.name === 'hello' ? updatedHello : p);
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(portfolios));
+      if (canSave) {
+        // Fetch from API for students
+        const result = await fetchWithAuth('/saved-portfolios');
+        if (result.success && result.data) {
+          setSavedPortfolios(result.data);
+        } else {
+          setSavedPortfolios([]);
         }
-        
-        setSavedPortfolios(portfolios);
       } else {
-        // Initialize with demo portfolio "Hello Web Studio"
-        const demoPortfolio: SavedPortfolio = {
-          id: 'portfolio-hello-demo',
-          name: 'Hello Web Studio',
-          title: 'Senior Frontend Developer',
-          headline: 'Chuyên gia React & Next.js với 5+ năm kinh nghiệm xây dựng ứng dụng web hiệu suất cao.',
-          summary: 'Tôi là một Senior Frontend Developer với kinh nghiệm sâu sắc trong việc xây dựng các ứng dụng web hiện đại, responsive và hiệu quả. Đam mê tìm hiểu công nghệ mới, tối ưu hiệu suất và tạo ra trải nghiệm người dùng tuyệt vời. Đã làm việc với các công ty công nghệ hàng đầu và startup nổi bật.',
-          photoUrl: '',
-          contactJson: {
-            email: 'hello@webstudio.com',
-            phone: '+84 912 345 678',
-            city: 'TP. Hồ Chí Minh',
-            district: 'Quận 1',
-            facebook: 'facebook.com/hellodev',
-            github: 'github.com/hellodev',
-          },
-          skills: {
-            selected: [
-              { id: 'skill-1', name: 'React', level: 'advanced' },
-              { id: 'skill-2', name: 'TypeScript', level: 'advanced' },
-              { id: 'skill-3', name: 'Next.js', level: 'advanced' },
-              { id: 'skill-4', name: 'Tailwind CSS', level: 'advanced' },
-              { id: 'skill-5', name: 'JavaScript', level: 'advanced' },
-              { id: 'skill-6', name: 'Node.js', level: 'intermediate' },
-              { id: 'skill-7', name: 'Redux', level: 'advanced' },
-              { id: 'skill-8', name: 'CSS/SCSS', level: 'advanced' },
-            ],
-          },
-          experience: {
-            items: [
-              {
-                id: 'exp-1',
-                title: 'Senior Frontend Developer',
-                company: 'Tech Innovations Vietnam',
-                startDate: '2022-01-15',
-                description: 'Dẫn dắt đội ngũ 5 frontend developers, xây dựng các ứng dụng enterprise-scale bằng React và Next.js. Tối ưu performance, cải thiện Lighthouse score từ 45 lên 95.',
-                isCurrent: true,
-              },
-              {
-                id: 'exp-2',
-                title: 'Middle Frontend Developer',
-                company: 'FinTech Solutions Asia',
-                startDate: '2020-06-01',
-                endDate: '2021-12-31',
-                description: 'Phát triển các tính năng dashboard thanh toán, quản lý ví điện tử. Làm việc với TypeScript, Redux, và API integration.',
-                isCurrent: false,
-              },
-              {
-                id: 'exp-3',
-                title: 'Junior Frontend Developer',
-                company: 'Creative Studio',
-                startDate: '2019-03-01',
-                endDate: '2020-05-31',
-                description: 'Xây dựng responsive UI components, làm việc với Figma design team. Học hỏi best practices về code quality và collaboration.',
-                isCurrent: false,
-              },
-            ],
-          },
-          education: {
-            items: [
-              {
-                id: 'edu-1',
-                school: 'Đại học Bách Khoa TP. Hồ Chí Minh',
-                degree: 'Cử nhân',
-                field: 'Công nghệ Thông tin',
-                graduationYear: '2019',
-              },
-              {
-                id: 'edu-2',
-                school: 'Coursera',
-                degree: 'Chứng chỉ',
-                field: 'Advanced React Patterns',
-                graduationYear: '2021',
-              },
-              {
-                id: 'edu-3',
-                school: 'Udemy',
-                degree: 'Chứng chỉ',
-                field: 'Next.js & Performance Optimization',
-                graduationYear: '2023',
-              },
-            ],
-          },
-          projects: {
-            items: [
-              {
-                id: 'proj-1',
-                title: 'E-commerce Platform',
-                description: 'Xây dựng nền tảng thương mại điện tử với React, Next.js, Redux. Support 100k+ users, xử lý 1000+ requests/second.',
-                url: 'https://ecommerce-demo.com',
-                imageUrl: '',
-              },
-              {
-                id: 'proj-2',
-                title: 'Real-time Dashboard',
-                description: 'Tạo dashboard analytics real-time với WebSocket, Chart.js. Hiển thị dữ liệu từ 50+ API endpoints.',
-                url: 'https://dashboard-demo.com',
-                imageUrl: '',
-              },
-              {
-                id: 'proj-3',
-                title: 'Mobile-first PWA',
-                description: 'Phát triển Progressive Web App với offline capability, push notifications. Lighthouse score 95+.',
-                url: 'https://pwa-demo.com',
-                imageUrl: '',
-              },
-            ],
-          },
-          selectedTemplate: 1,
-          savedAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-        setSavedPortfolios([demoPortfolio]);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify([demoPortfolio]));
+        // For employers or non-logged-in: show demo data (read-only)
+        setSavedPortfolios([DEMO_PORTFOLIO]);
       }
-    } catch (error) {
-      console.error('Failed to load saved portfolios:', error);
-      setSavedPortfolios([]);
+    } catch (err) {
+      console.error('Failed to load portfolios:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load portfolios');
+      // Fallback to demo for any error
+      setSavedPortfolios([DEMO_PORTFOLIO]);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [canSave, fetchWithAuth]);
 
+  // Load on mount and when auth changes
+  useEffect(() => {
+    loadPortfolios();
+  }, [loadPortfolios]);
+
+  // Save portfolio (only for students)
   const savePortfolio = useCallback(
-    (
+    async (
       portfolio: Omit<SavedPortfolio, 'id' | 'savedAt' | 'updatedAt'> & { id?: string }
-    ): SavedPortfolio => {
-      const now = new Date().toISOString();
-      const id = portfolio.id || `portfolio-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    ): Promise<SavedPortfolio | null> => {
+      if (!canSave) {
+        setError('Chỉ tài khoản Sinh viên mới có thể lưu hồ sơ');
+        return null;
+      }
 
-      const newPortfolio: SavedPortfolio = {
-        ...portfolio,
-        id,
-        savedAt: portfolio.id ? savedPortfolios.find(p => p.id === portfolio.id)?.savedAt || now : now,
-        updatedAt: now,
-      };
+      try {
+        setError(null);
 
-      setSavedPortfolios((prev) => {
-        const existing = prev.findIndex(p => p.id === id);
-        let updated: SavedPortfolio[];
+        if (portfolio.id) {
+          // Update existing
+          const result = await fetchWithAuth(`/saved-portfolios/${portfolio.id}`, {
+            method: 'PUT',
+            body: JSON.stringify(portfolio),
+          });
 
-        if (existing >= 0) {
-          updated = [...prev];
-          updated[existing] = newPortfolio;
+          if (result.success && result.data) {
+            setSavedPortfolios(prev =>
+              prev.map(p => p.id === portfolio.id ? result.data : p)
+            );
+            return result.data;
+          }
         } else {
-          updated = [...prev, newPortfolio];
+          // Create new
+          const result = await fetchWithAuth('/saved-portfolios', {
+            method: 'POST',
+            body: JSON.stringify(portfolio),
+          });
+
+          if (result.success && result.data) {
+            setSavedPortfolios(prev => [...prev, result.data]);
+            return result.data;
+          }
         }
 
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          window.dispatchEvent(
-            new CustomEvent('savedPortfoliosUpdated', { detail: updated })
-          );
-        } catch (error) {
-          console.error('Failed to save portfolios to localStorage:', error);
-        }
-
-        return updated;
-      });
-
-      return newPortfolio;
+        return null;
+      } catch (err) {
+        console.error('Failed to save portfolio:', err);
+        setError(err instanceof Error ? err.message : 'Failed to save portfolio');
+        return null;
+      }
     },
-    [savedPortfolios]
+    [canSave, fetchWithAuth]
   );
 
+  // Get all portfolios
   const getSavedPortfolios = useCallback(() => {
     return savedPortfolios;
   }, [savedPortfolios]);
 
+  // Get portfolio by ID
   const getSavedPortfolioById = useCallback(
     (id: string) => {
       return savedPortfolios.find(p => p.id === id) || null;
@@ -380,75 +232,78 @@ export function SavedPortfolioProvider({ children }: { children: React.ReactNode
     [savedPortfolios]
   );
 
-  const deletePortfolio = useCallback((id: string) => {
-    setSavedPortfolios((prev) => {
-      const updated = prev.filter(p => p.id !== id);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-        window.dispatchEvent(
-          new CustomEvent('savedPortfoliosUpdated', { detail: updated })
-        );
-      } catch (error) {
-        console.error('Failed to delete portfolio:', error);
-      }
-      return updated;
-    });
-  }, []);
+  // Delete portfolio (only for students)
+  const deletePortfolio = useCallback(async (id: string): Promise<boolean> => {
+    if (!canSave) {
+      setError('Chỉ tài khoản Sinh viên mới có thể xóa hồ sơ');
+      return false;
+    }
 
-  const updatePortfolio = useCallback(
-    (id: string, portfolio: Partial<SavedPortfolio>) => {
-      setSavedPortfolios((prev) => {
-        const updated = prev.map(p =>
-          p.id === id
-            ? {
-                ...p,
-                ...portfolio,
-                id: p.id, // Preserve original ID
-                savedAt: p.savedAt, // Preserve original savedAt
-                updatedAt: new Date().toISOString(),
-              }
-            : p
-        );
-        try {
-          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-          window.dispatchEvent(
-            new CustomEvent('savedPortfoliosUpdated', { detail: updated })
-          );
-        } catch (error) {
-          console.error('Failed to update portfolio:', error);
-        }
-        return updated;
+    try {
+      setError(null);
+      await fetchWithAuth(`/saved-portfolios/${id}`, {
+        method: 'DELETE',
       });
+
+      setSavedPortfolios(prev => prev.filter(p => p.id !== id));
+      return true;
+    } catch (err) {
+      console.error('Failed to delete portfolio:', err);
+      setError(err instanceof Error ? err.message : 'Failed to delete portfolio');
+      return false;
+    }
+  }, [canSave, fetchWithAuth]);
+
+  // Update portfolio (only for students)
+  const updatePortfolio = useCallback(
+    async (id: string, portfolio: Partial<SavedPortfolio>): Promise<boolean> => {
+      if (!canSave) {
+        setError('Chỉ tài khoản Sinh viên mới có thể cập nhật hồ sơ');
+        return false;
+      }
+
+      try {
+        setError(null);
+        const result = await fetchWithAuth(`/saved-portfolios/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify(portfolio),
+        });
+
+        if (result.success && result.data) {
+          setSavedPortfolios(prev =>
+            prev.map(p => p.id === id ? result.data : p)
+          );
+          return true;
+        }
+
+        return false;
+      } catch (err) {
+        console.error('Failed to update portfolio:', err);
+        setError(err instanceof Error ? err.message : 'Failed to update portfolio');
+        return false;
+      }
     },
-    []
+    [canSave, fetchWithAuth]
   );
 
-  // Listen for storage changes from other tabs/windows
-  useEffect(() => {
-    const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === STORAGE_KEY && e.newValue) {
-        try {
-          setSavedPortfolios(JSON.parse(e.newValue));
-        } catch (error) {
-          console.error('Failed to parse saved portfolios from storage event:', error);
-        }
-      }
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
+  // Refresh portfolios
+  const refreshPortfolios = useCallback(async () => {
+    await loadPortfolios();
+  }, [loadPortfolios]);
 
   return (
     <SavedPortfolioContext.Provider
       value={{
         savedPortfolios,
         isLoading,
+        error,
+        canSave,
         savePortfolio,
         getSavedPortfolios,
         getSavedPortfolioById,
         deletePortfolio,
         updatePortfolio,
+        refreshPortfolios,
       }}
     >
       {children}

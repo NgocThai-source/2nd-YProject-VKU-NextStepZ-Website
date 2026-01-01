@@ -45,6 +45,7 @@ model User {
   profile   Profile?
   publicProfile PublicProfile?
   portfolio Portfolio?
+  savedPortfolios SavedPortfolio[]
   posts     Post[]
   comments  Comment[]
   likes     Like[]
@@ -266,6 +267,31 @@ model Project {
   updatedAt   DateTime @updatedAt
 
   @@map("projects")
+}
+
+// Saved Portfolio Model - Multiple portfolios per user with full JSON data
+// Only for User (Student) role - stores complete portfolio data for /saved-portfolios
+model SavedPortfolio {
+  id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  name            String
+  title           String
+  headline        String?
+  summary         String?
+  photoUrl        String?
+  contactJson     Json?    // {email, phone, city, district, facebook, github}
+  skills          Json?    // {selected: [{id, name, level}]}
+  experience      Json?    // {items: [{id, title, company, startDate, endDate, description, isCurrent}]}
+  education       Json?    // {items: [{id, school, degree, field, graduationYear}]}
+  projects        Json?    // {items: [{id, title, description, url, imageUrl}]}
+  selectedTemplate Int     @default(1)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@map("saved_portfolios")
 }
 
 // Post Model (for Community)

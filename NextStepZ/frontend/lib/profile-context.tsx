@@ -12,7 +12,7 @@ const formatBirthDate = (birthDate: string | Date | null | undefined): string =>
     if (typeof birthDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(birthDate)) {
       return birthDate;
     }
-    
+
     let date: Date;
     if (typeof birthDate === 'string') {
       date = new Date(birthDate);
@@ -142,7 +142,7 @@ export interface ProfileContextType {
   publicProfile: PublicProfile | null;
   isLoading: boolean;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
-  updateEmployerProfile: (profile: Partial<EmployerProfileData>) => void;
+  updateEmployerProfile: (profile: Partial<EmployerProfileData>) => Promise<void>;
   loadProfileFromLocalStorage: () => void;
 }
 
@@ -188,8 +188,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
           id: data.id,
           userId: data.userId,
           avatar: data.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
-          name: data.firstName && data.lastName 
-            ? `${data.firstName} ${data.lastName}` 
+          name: data.firstName && data.lastName
+            ? `${data.firstName} ${data.lastName}`
             : data.username || user.username,
           email: data.email,
           bio: data.bio || '',
@@ -231,8 +231,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
         // Initialize user profile immediately from auth context data
         const initialUserProfile: UserProfile = {
           avatar: user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
-          name: user.firstName && user.lastName 
-            ? `${user.firstName} ${user.lastName}` 
+          name: user.firstName && user.lastName
+            ? `${user.firstName} ${user.lastName}`
             : user.username,
           email: user.email,
           bio: '',
@@ -280,8 +280,8 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
               id: data.id,
               userId: data.userId,
               avatar: data.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=User',
-              name: data.firstName && data.lastName 
-                ? `${data.firstName} ${data.lastName}` 
+              name: data.firstName && data.lastName
+                ? `${data.firstName} ${data.lastName}`
                 : data.username || user.username,
               email: data.email,
               bio: data.bio || '',
@@ -307,17 +307,73 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
 
         // Fetch employer profile if user role is 'employer'
         if (user.role === 'employer') {
-          // Initialize with default for now - backend endpoints will be added later
-          setEmployerProfile({
-            companyName: user.companyName || user.firstName || user.name || '',
-            industry: '',
-            companySize: '',
-            address: user.address || user.province || '',
-            website: user.website || '',
-            foundingYear: '',
-            about: '',
-            jobPostings: [],
-          });
+          try {
+            // First ensure employer profile exists
+            await fetch(`${API_URL}/employers/profile`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            // Then fetch the full employer profile
+            const employerRes = await fetch(`${API_URL}/employers/profile`, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+
+            if (employerRes.ok) {
+              const employerData = await employerRes.json();
+              console.log('Fetched employer profile data:', employerData);
+
+              // Map backend response to EmployerProfileData interface
+              setEmployerProfile({
+                id: employerData.id,
+                userId: employerData.profileId,
+                companyName: employerData.companyName || user.companyName || user.firstName || '',
+                industry: employerData.industry || '',
+                companySize: employerData.companySize || '',
+                address: employerData.address || '',
+                website: employerData.website || '',
+                foundingYear: employerData.foundingYear?.toString() || '',
+                about: employerData.about || '',
+                jobPostings: (employerData.jobPostings || []).map((job: any) => ({
+                  id: job.id,
+                  title: job.title,
+                  location: job.location || '',
+                  level: job.salary || '',
+                  postedAt: new Date(job.createdAt).toLocaleDateString('vi-VN'),
+                  applications: 0,
+                })),
+              });
+            } else {
+              // Fallback to defaults if backend fetch fails
+              setEmployerProfile({
+                companyName: user.companyName || user.firstName || user.name || '',
+                industry: '',
+                companySize: '',
+                address: user.address || user.province || '',
+                website: user.website || '',
+                foundingYear: '',
+                about: '',
+                jobPostings: [],
+              });
+            }
+          } catch (err) {
+            console.error('Failed to fetch employer profile from backend:', err);
+            // Fallback to defaults
+            setEmployerProfile({
+              companyName: user.companyName || user.firstName || user.name || '',
+              industry: '',
+              companySize: '',
+              address: user.address || user.province || '',
+              website: user.website || '',
+              foundingYear: '',
+              about: '',
+              jobPostings: [],
+            });
+          }
         }
 
         // Fetch public profile
@@ -377,12 +433,12 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
   // Refetch profile when user ID changes (navigation, login, etc)
   useEffect(() => {
     if (!user?.id) return;
-    
+
     console.log('User ID changed, refetching profile for user:', user.id);
     const timer = setTimeout(() => {
       fetchAndUpdateProfile();
     }, 100);
-    
+
     return () => clearTimeout(timer);
   }, [user?.id, fetchAndUpdateProfile]);
 
@@ -400,12 +456,66 @@ export function ProfileProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  const updateEmployerProfile = useCallback((profile: Partial<EmployerProfileData>) => {
+  const updateEmployerProfile = useCallback(async (profile: Partial<EmployerProfileData>) => {
+    // Update local state immediately for UI responsiveness
     setEmployerProfile((prev) => {
       const updated = { ...prev, ...profile } as EmployerProfileData;
       return updated;
     });
-  }, []);
+
+    // Persist to backend for real-time sync
+    try {
+      const token = getToken?.();
+      if (!token) return;
+
+      // Prepare backend-compatible data
+      const backendData: Record<string, any> = {};
+      if (profile.industry !== undefined) backendData.industry = profile.industry;
+      if (profile.companySize !== undefined) backendData.companySize = profile.companySize;
+      if (profile.address !== undefined) backendData.address = profile.address;
+      if (profile.website !== undefined) backendData.website = profile.website;
+      if (profile.about !== undefined) backendData.about = profile.about;
+      if (profile.foundingYear !== undefined) {
+        backendData.foundingYear = profile.foundingYear ? parseInt(profile.foundingYear) : null;
+      }
+
+      // Only call API if there's data to update
+      if (Object.keys(backendData).length > 0) {
+        const res = await fetch(`${API_URL}/employers/profile`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(backendData),
+        });
+
+        if (res.ok) {
+          console.log('Employer profile updated successfully');
+
+          // Refetch public profile to ensure real-time sync
+          try {
+            const publicRes = await fetch(`${API_URL}/profiles/public`, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            });
+            if (publicRes.ok) {
+              const publicData = await publicRes.json();
+              setPublicProfile(publicData);
+            }
+          } catch (err) {
+            console.error('Failed to refetch public profile:', err);
+          }
+        } else {
+          console.error('Failed to update employer profile:', await res.text());
+        }
+      }
+    } catch (err) {
+      console.error('Error updating employer profile:', err);
+    }
+  }, [getToken]);
 
   return (
     <ProfileContext.Provider

@@ -77,8 +77,17 @@ interface EmployerProfile {
   foundingYear?: number;
   about?: string;
   website?: string;
+  address?: string;
   jobPostings?: JobPosting[];
 }
+
+// Map company size codes to Vietnamese display labels
+const companySizeMap: Record<string, string> = {
+  '10-50': '10 - 50 nhân viên',
+  '50-200': '50 - 200 nhân viên',
+  '200-500': '200 - 500 nhân viên',
+  '500+': 'Trên 500 nhân viên',
+};
 
 interface ForumPost {
   id: string;
@@ -227,6 +236,7 @@ export default function PublicProfileTokenPage() {
             careerProfile: data.profile?.careerProfile || prevProfile.profile?.careerProfile,
             employerProfile: data.profile?.employerProfile || prevProfile.profile?.employerProfile,
             socialLinks: data.profile?.socialLinks || prevProfile.profile?.socialLinks,
+            userPosts: data.profile?.userPosts || prevProfile.profile?.userPosts,
           },
         };
       });
@@ -478,7 +488,7 @@ export default function PublicProfileTokenPage() {
                         Địa chỉ trụ sở
                       </p>
                       <p className="text-sm text-gray-300" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                        {employerProfile.website || 'Chưa cập nhật'}
+                        {employerProfile.address || 'Chưa cập nhật'}
                       </p>
                     </div>
                   </CardContent>
@@ -531,7 +541,7 @@ export default function PublicProfileTokenPage() {
                         Quy mô công ty
                       </p>
                       <p className="text-sm font-semibold text-white" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-                        {employerProfile.companySize || 'Chưa cập nhật'}
+                        {employerProfile.companySize ? (companySizeMap[employerProfile.companySize] || employerProfile.companySize) : 'Chưa cập nhật'}
                       </p>
                     </div>
                     <div>
@@ -542,6 +552,7 @@ export default function PublicProfileTokenPage() {
                         {employerProfile.foundingYear || 'Chưa cập nhật'}
                       </p>
                     </div>
+
                     <div>
                       <p className="text-xs text-gray-500 uppercase tracking-wide mb-1" style={{ fontFamily: "'Exo 2 Regular', sans-serif" }}>
                         Website công ty
@@ -561,31 +572,16 @@ export default function PublicProfileTokenPage() {
               </Card>
 
               {/* Job Postings */}
-              {employerProfile.jobPostings && employerProfile.jobPostings.length > 0 && (
-                <EmployerJobPostings
-                  postings={employerProfile.jobPostings}
-                  totalPostings={employerProfile.jobPostings.length}
-                  onViewAllClick={() => { }}
-                />
-              )}
+              <EmployerJobPostings
+                postings={employerProfile.jobPostings || []}
+                totalPostings={employerProfile.jobPostings?.length || 0}
+                onViewAllClick={() => { }}
+              />
 
               {/* Employer Activity */}
               <EmployerActivity
-                posts={[
-                  {
-                    id: '1',
-                    title: 'Chia sẻ kinh nghiệm tuyển dụng lập trình viên giỏi',
-                    excerpt: 'Sau 5 năm kinh nghiệm tuyển dụng, tôi muốn chia sẻ những mẹo hiệu quả...',
-                    category: 'Chia sẻ kinh nghiệm',
-                    postDate: '3 ngày trước',
-                    engagement: {
-                      likes: 125,
-                      comments: 23,
-                      shares: 8,
-                    },
-                  },
-                ]}
-                totalPosts={1}
+                posts={profile.userPosts || []}
+                totalPosts={profile.userPosts?.length || 0}
                 onViewAllClick={() => { }}
               />
             </motion.div>

@@ -115,6 +115,17 @@ export class AuthService {
           });
         }
       }
+
+      // Create EmployerProfile for employer role
+      if (registerDto.role === 'employer' && profile) {
+        await this.prisma.employerProfile.create({
+          data: {
+            profileId: profile.id,
+            website: registerDto.website || null,
+            address: registerDto.address || null,
+          },
+        });
+      }
     } catch (error) {
       console.error('Failed to create profile:', error);
       // Continue anyway - profile creation failure shouldn't block registration

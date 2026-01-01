@@ -183,6 +183,7 @@ model EmployerProfile {
   foundingYear    Int?
   about           String?
   website         String?
+  address         String?  // Địa chỉ trụ sở
   
   // Job postings
   jobPostings     JobPosting[]

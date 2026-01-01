@@ -70,17 +70,66 @@ export default function EditEmployerInfoDialog({
   const [isHoveringLogo, setIsHoveringLogo] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleLogoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({
-          ...formData,
-          companyLogo: reader.result as string,
-        });
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
+    if (!validTypes.includes(file.type)) {
+      alert('Chỉ chấp nhận file ảnh (jpg, png, webp)');
+      return;
+    }
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('Kích thước file tối đa là 5MB');
+      return;
+    }
+
+    // Show preview immediately
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData({
+        ...formData,
+        companyLogo: reader.result as string,
+      });
+    };
+    reader.readAsDataURL(file);
+
+    // Upload to backend
+    try {
+      const token = localStorage.getItem('accessToken') || localStorage.getItem('authToken');
+      if (!token) {
+        alert('Vui lòng đăng nhập để tải ảnh lên');
+        return;
+      }
+
+      const uploadFormData = new FormData();
+      uploadFormData.append('file', file);
+
+      const response = await fetch('http://localhost:3001/api/profiles/me/avatar', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        body: uploadFormData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        if (result.avatar) {
+          setFormData(prev => ({
+            ...prev,
+            companyLogo: result.avatar,
+          }));
+        }
+      } else {
+        alert('Lỗi khi tải ảnh lên. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('Error uploading logo:', error);
+      alert('Lỗi khi tải ảnh lên. Vui lòng thử lại.');
     }
   };
 

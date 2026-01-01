@@ -11,6 +11,7 @@ export class CreateEmployerProfileDto {
   foundingYear?: number;
   about?: string;
   website?: string;
+  address?: string;
 }
 
 export class UpdateEmployerProfileDto {
@@ -19,6 +20,7 @@ export class UpdateEmployerProfileDto {
   foundingYear?: number;
   about?: string;
   website?: string;
+  address?: string;
 }
 
 export class CreateJobPostingDto {
@@ -37,7 +39,7 @@ export class UpdateJobPostingDto {
 
 @Injectable()
 export class EmployerService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   /**
    * Create or get employer profile for a user
@@ -45,9 +47,10 @@ export class EmployerService {
    */
   async getOrCreateEmployerProfile(userId: string) {
     // Verify user exists and has employer role
+    // Also fetch website and address to copy to employer profile if needed
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, role: true },
+      select: { id: true, role: true, website: true, address: true },
     });
 
     if (!user) {
@@ -82,9 +85,12 @@ export class EmployerService {
     });
 
     if (!employerProfile) {
+      // Create employer profile with website and address from User registration data
       employerProfile = await this.prisma.employerProfile.create({
         data: {
           profileId: profile.id,
+          website: user.website || null,
+          address: user.address || null,
         },
         include: {
           jobPostings: true,
@@ -96,13 +102,29 @@ export class EmployerService {
   }
 
   /**
-   * Get employer profile by user ID
+   * Get employer profile by user ID with full user data
+   * Returns complete employer profile with company name, email, phone, and avatar
    */
   async getEmployerProfile(userId: string) {
     const profile = await this.prisma.profile.findUnique({
       where: { userId },
       select: {
         id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        avatar: true,
+        bio: true,
+        user: {
+          select: {
+            id: true,
+            companyName: true,
+            email: true,
+            phone: true,
+            avatar: true,
+          },
+        },
         employerProfile: {
           include: {
             jobPostings: {
@@ -117,7 +139,15 @@ export class EmployerService {
       throw new NotFoundException('Employer profile not found');
     }
 
-    return profile.employerProfile;
+    // Build full employer profile response with user data
+    return {
+      ...profile.employerProfile,
+      // Company info from User model
+      companyName: profile.user?.companyName || `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Công ty',
+      email: profile.email || profile.user?.email || '',
+      phone: profile.phone || profile.user?.phone || '',
+      avatar: profile.avatar || profile.user?.avatar || '',
+    };
   }
 
   /**

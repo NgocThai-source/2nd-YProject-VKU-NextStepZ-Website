@@ -21,7 +21,7 @@ interface RegisterFormProps {
 
 // Danh sách các tỉnh thành Việt Nam
 const provinces = [
-  "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu", 
+  "An Giang", "Bà Rịa - Vũng Tàu", "Bắc Giang", "Bắc Kạn", "Bạc Liêu",
   "Bắc Ninh", "Bến Tre", "Bình Định", "Bình Dương", "Bình Phước",
   "Bình Thuận", "Cà Mau", "Cần Thơ", "Cao Bằng", "Đà Nẵng",
   "Đắk Lắk", "Đắk Nông", "Điện Biên", "Đồng Nai", "Đồng Tháp",
@@ -322,7 +322,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   const [success, setSuccess] = useState('');
   const router = useRouter();
   const { login } = useAuth();
-  
+
   // Common fields
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -330,14 +330,14 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   // Student fields
   const [fullName, setFullName] = useState('');
   const [birthDate, setBirthDate] = useState('');
   const [selectedProvince, setSelectedProvince] = useState<string>('');
   const [selectedSchool, setSelectedSchool] = useState<string>('');
   const [major, setMajor] = useState('');
-  
+
   // Employer fields
   const [companyName, setCompanyName] = useState('');
   const [website, setWebsite] = useState('');
@@ -347,6 +347,30 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   // Real-time validation using useMemo
   const fieldErrors = useMemo(() => {
     const errors: { [key: string]: string } = {};
+
+    // Full Name validation (for Student role)
+    if (fullName) {
+      const trimmedName = fullName.trim();
+      if (trimmedName.length < 2) {
+        errors.fullName = 'Họ và tên phải có ít nhất 2 ký tự';
+      } else if (!/^[\p{L}\s]+$/u.test(trimmedName)) {
+        errors.fullName = 'Họ và tên chỉ được chứa chữ cái và khoảng trắng';
+      } else if (trimmedName.split(/\s+/).length < 2) {
+        errors.fullName = 'Vui lòng nhập đầy đủ họ và tên';
+      }
+    }
+
+    // Company Name validation (for Employer role)
+    if (companyName) {
+      const trimmedCompany = companyName.trim();
+      if (trimmedCompany.length < 2) {
+        errors.companyName = 'Tên công ty phải có ít nhất 2 ký tự';
+      } else if (!/^[\p{L}\s]+$/u.test(trimmedCompany)) {
+        errors.companyName = 'Tên công ty chỉ được chứa chữ cái và khoảng trắng';
+      } else if (trimmedCompany.split(/\s+/).length < 2) {
+        errors.companyName = 'Vui lòng nhập đầy đủ tên công ty';
+      }
+    }
 
     // Email validation
     if (email && !email.includes('@')) {
@@ -381,7 +405,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
     }
 
     return errors;
-  }, [email, phone, password, confirmPassword, age]);
+  }, [email, phone, password, confirmPassword, age, fullName, companyName]);
 
 
   const calculateAge = (birthDate: string) => {
@@ -389,11 +413,11 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
     const birth = new Date(birthDate);
     let age = today.getFullYear() - birth.getFullYear();
     const monthDiff = today.getMonth() - birth.getMonth();
-    
+
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
       age--;
     }
-    
+
     setAge(age);
     setBirthDate(birthDate);
   };
@@ -440,9 +464,27 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
     }
 
     // Role-specific validation
-    if (role === 'student') {
+    if (role === 'user') {
       if (!fullName || !birthDate || !selectedProvince) {
         setError('Vui lòng điền đầy đủ thông tin sinh viên (trừ ngành học)');
+        setIsLoading(false);
+        return;
+      }
+
+      // Full Name validation
+      const trimmedName = fullName.trim();
+      if (trimmedName.length < 2) {
+        setError('Họ và tên phải có ít nhất 2 ký tự');
+        setIsLoading(false);
+        return;
+      }
+      if (!/^[\p{L}\s]+$/u.test(trimmedName)) {
+        setError('Họ và tên chỉ được chứa chữ cái và khoảng trắng');
+        setIsLoading(false);
+        return;
+      }
+      if (trimmedName.split(/\s+/).length < 2) {
+        setError('Vui lòng nhập đầy đủ họ và tên');
         setIsLoading(false);
         return;
       }
@@ -462,10 +504,25 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
       }
     }
 
-    if (role === 'employer' && (!companyName || !address)) {
-      setError('Vui lòng điền đầy đủ thông tin công ty (bắt buộc: tên công ty, địa chỉ)');
-      setIsLoading(false);
-      return;
+    if (role === 'employer') {
+      if (!companyName || !address) {
+        setError('Vui lòng điền đầy đủ thông tin công ty (bắt buộc: tên công ty, địa chỉ)');
+        setIsLoading(false);
+        return;
+      }
+
+      // Company Name validation
+      const trimmedCompany = companyName.trim();
+      if (trimmedCompany.length < 2) {
+        setError('Tên công ty phải có ít nhất 2 ký tự');
+        setIsLoading(false);
+        return;
+      }
+      if (trimmedCompany.length > 200) {
+        setError('Tên công ty không được quá 200 ký tự');
+        setIsLoading(false);
+        return;
+      }
     }
 
     try {
@@ -513,7 +570,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
       }
 
       setSuccess('Đăng ký thành công! Vui lòng đăng nhập...');
-      
+
       // Redirect to login after 1.5 seconds
       setTimeout(() => {
         onToggleForm('login');
@@ -546,7 +603,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
   };
 
   return (
-    <motion.div 
+    <motion.div
       className="space-y-6"
       variants={containerVariants}
       initial="hidden"
@@ -554,13 +611,13 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
     >
       {/* Header */}
       <motion.div className="space-y-2" variants={itemVariants}>
-        <h1 
+        <h1
           className="text-xl sm:text-3xl font-black bg-linear-to-r from-cyan-300 to-blue-400 bg-clip-text text-transparent"
           style={{ fontFamily: "'Exo 2 ExtraBold', sans-serif" }}
         >
           Tạo tài khoản
         </h1>
-        <p 
+        <p
           className="text-gray-400 text-xs sm:text-sm leading-relaxed"
           style={{ fontFamily: "'Poppins Regular', sans-serif" }}
         >
@@ -570,7 +627,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
       {/* Role Selection */}
       <motion.div className="space-y-4" variants={itemVariants}>
-        <label 
+        <label
           className="text-sm font-semibold text-gray-300"
           style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
         >
@@ -584,11 +641,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
             <motion.button
               key={option.value}
               onClick={() => setRole(option.value as 'user' | 'employer')}
-              className={`p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-1 sm:gap-2 font-semibold whitespace-nowrap text-xs sm:text-sm ${
-                role === option.value
-                  ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300'
-                  : 'border-cyan-400/30 bg-white/5 text-gray-300 hover:border-cyan-400/50'
-              }`}
+              className={`p-3 sm:p-4 rounded-xl border-2 transition-all duration-300 flex items-center justify-center gap-1 sm:gap-2 font-semibold whitespace-nowrap text-xs sm:text-sm ${role === option.value
+                ? 'border-cyan-400 bg-cyan-500/10 text-cyan-300'
+                : 'border-cyan-400/30 bg-white/5 text-gray-300 hover:border-cyan-400/50'
+                }`}
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
@@ -627,7 +683,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
       {/* Conditional Fields based on Role */}
       <motion.div className="space-y-4" variants={itemVariants}>
         {role === 'user' && (
-          <motion.div 
+          <motion.div
             className="space-y-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -635,7 +691,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           >
             {/* Full Name */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -647,14 +703,28 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 disabled={isLoading}
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.fullName
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
+              {fieldErrors.fullName && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.fullName}
+                </motion.div>
+              )}
             </div>
 
             {/* Birth Date */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -674,17 +744,16 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <label 
+                <label
                   className="text-sm font-semibold text-gray-300"
                   style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                 >
                   Tuổi
                 </label>
-                <div className={`px-4 py-3 border rounded-xl font-semibold transition-all ${
-                  fieldErrors.age
-                    ? 'bg-red-500/10 border-red-500/40 text-red-300'
-                    : 'bg-cyan-500/10 border-cyan-400/40 text-cyan-300'
-                }`}>
+                <div className={`px-4 py-3 border rounded-xl font-semibold transition-all ${fieldErrors.age
+                  ? 'bg-red-500/10 border-red-500/40 text-red-300'
+                  : 'bg-cyan-500/10 border-cyan-400/40 text-cyan-300'
+                  }`}>
                   {age} tuổi
                 </div>
                 {fieldErrors.age && (
@@ -703,7 +772,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Email */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -715,11 +784,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
-                  fieldErrors.email
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-cyan-400/30 focus:border-cyan-400'
-                }`}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.email
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
               {fieldErrors.email && (
@@ -737,7 +805,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Phone */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -749,11 +817,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
-                  fieldErrors.phone
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-cyan-400/30 focus:border-cyan-400'
-                }`}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.phone
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
               {fieldErrors.phone && (
@@ -771,7 +838,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Province Select */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -824,7 +891,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
               >
-                <label 
+                <label
                   className="text-sm font-semibold text-gray-300"
                   style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                 >
@@ -876,7 +943,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Major */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -896,7 +963,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
         )}
 
         {role === 'employer' && (
-          <motion.div 
+          <motion.div
             className="space-y-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -904,7 +971,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           >
             {/* Company Name */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -916,14 +983,28 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 disabled={isLoading}
-                className="w-full px-4 py-3 bg-white/5 border border-cyan-400/30 rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:border-cyan-400 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50"
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.companyName
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
+              {fieldErrors.companyName && (
+                <motion.div
+                  className="flex items-center gap-2 text-sm text-red-400"
+                  initial={{ opacity: 0, y: -5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                >
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                  {fieldErrors.companyName}
+                </motion.div>
+              )}
             </div>
 
             {/* Email */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -935,11 +1016,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
-                  fieldErrors.email
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-cyan-400/30 focus:border-cyan-400'
-                }`}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.email
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
               {fieldErrors.email && (
@@ -957,7 +1037,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Phone */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -969,11 +1049,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 disabled={isLoading}
-                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
-                  fieldErrors.phone
-                    ? 'border-red-500/50 focus:border-red-500'
-                    : 'border-cyan-400/30 focus:border-cyan-400'
-                }`}
+                className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.phone
+                  ? 'border-red-500/50 focus:border-red-500'
+                  : 'border-cyan-400/30 focus:border-cyan-400'
+                  }`}
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
               />
               {fieldErrors.phone && (
@@ -991,7 +1070,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Website */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -1010,7 +1089,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Address */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -1029,7 +1108,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Tax ID */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -1050,7 +1129,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
         {/* Password Section - Show for both roles */}
         {role && (
-          <motion.div 
+          <motion.div
             className="space-y-4 pt-2 border-t border-cyan-400/20"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -1058,7 +1137,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           >
             {/* Password */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -1071,11 +1150,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={isLoading}
-                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
-                    fieldErrors.password
-                      ? 'border-red-500/50 focus:border-red-500'
-                      : 'border-cyan-400/30 focus:border-cyan-400'
-                  }`}
+                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.password
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-cyan-400/30 focus:border-cyan-400'
+                    }`}
                   style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                 />
                 <motion.button
@@ -1110,7 +1188,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <label 
+              <label
                 className="text-sm font-semibold text-gray-300"
                 style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
               >
@@ -1123,11 +1201,10 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   disabled={isLoading}
-                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${
-                    fieldErrors.confirmPassword
-                      ? 'border-red-500/50 focus:border-red-500'
-                      : 'border-cyan-400/30 focus:border-cyan-400'
-                  }`}
+                  className={`w-full px-4 py-3 bg-white/5 border rounded-xl text-white placeholder:text-gray-500 pr-12 transition-all duration-300 focus:bg-white/10 focus:shadow-lg focus:shadow-cyan-500/20 disabled:opacity-50 ${fieldErrors.confirmPassword
+                    ? 'border-red-500/50 focus:border-red-500'
+                    : 'border-cyan-400/30 focus:border-cyan-400'
+                    }`}
                   style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                 />
                 <motion.button
@@ -1191,7 +1268,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
       {/* Divider */}
       {role && (
-        <motion.div 
+        <motion.div
           className="relative my-4"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -1210,7 +1287,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
 
       {/* Social Buttons */}
       {role && (
-        <motion.div 
+        <motion.div
           className="grid grid-cols-2 gap-2 sm:gap-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1219,7 +1296,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           <motion.button
             className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-cyan-400/20 hover:border-cyan-400/50 rounded-xl text-gray-300 hover:text-cyan-300 transition-all duration-300 group"
             style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-            whileHover={{ 
+            whileHover={{
               scale: 1.05,
               y: -2,
               backgroundColor: 'rgba(34, 211, 238, 0.1)',
@@ -1232,7 +1309,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
           <motion.button
             className="flex items-center justify-center gap-2 px-4 py-3 bg-white/5 border border-cyan-400/20 hover:border-cyan-400/50 rounded-xl text-gray-300 hover:text-cyan-300 transition-all duration-300 group"
             style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-            whileHover={{ 
+            whileHover={{
               scale: 1.05,
               y: -2,
               backgroundColor: 'rgba(34, 211, 238, 0.1)',
@@ -1246,7 +1323,7 @@ export function RegisterForm({ onToggleForm }: RegisterFormProps) {
       )}
 
       {/* Toggle to Login */}
-      <motion.div 
+      <motion.div
         className="text-center pt-2"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}

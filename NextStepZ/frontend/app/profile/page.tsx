@@ -256,8 +256,50 @@ export default function ProfilePage() {
                 phone={userProfile?.phone}
                 isVerified={false}
                 onEditClick={() => setUserInfoEdit(!userInfoEdit)}
-                onAvatarChange={(file) => {
-                  console.log('Company logo changed:', file);
+                onAvatarChange={async (file) => {
+                  // Upload avatar to backend API
+                  try {
+                    const token = getToken?.();
+                    if (!token) {
+                      addToast('Vui lòng đăng nhập để cập nhật ảnh đại diện', 'error');
+                      return;
+                    }
+
+                    // Upload the file
+                    const formData = new FormData();
+                    formData.append('file', file);
+
+                    const uploadResponse = await fetch(`${API_URL}/profiles/me/avatar`, {
+                      method: 'POST',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                      },
+                      body: formData,
+                    });
+
+                    if (!uploadResponse.ok) {
+                      throw new Error('Failed to upload avatar');
+                    }
+
+                    // Refetch profile to get the new avatar URL
+                    const response = await fetch(`${API_URL}/profiles/me`, {
+                      method: 'GET',
+                      headers: {
+                        'Authorization': `Bearer ${token}`,
+                      },
+                    });
+
+                    if (response.ok) {
+                      const updatedProfile = await response.json();
+                      updateUserProfile({
+                        avatar: updatedProfile.avatar,
+                      });
+                      addToast('Cập nhật ảnh đại diện thành công!', 'success');
+                    }
+                  } catch (error) {
+                    console.error('Error uploading avatar:', error);
+                    addToast('Lỗi khi tải ảnh lên. Vui lòng thử lại.', 'error');
+                  }
                 }}
               />
 

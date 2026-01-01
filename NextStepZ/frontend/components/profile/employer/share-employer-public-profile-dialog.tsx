@@ -21,20 +21,32 @@ interface ShareEmployerPublicProfileDialogProps {
     email?: string;
   };
   shareUrl?: string;
+  publicProfile?: {
+    id?: string;
+    shareToken?: string;
+    isActive?: boolean;
+    viewCount?: number;
+  };
 }
 
 export default function ShareEmployerPublicProfileDialog({
   isOpen,
   onClose,
   employerProfile,
-  shareUrl = typeof window !== 'undefined' ? window.location.origin + '/public-profile' : '',
+  shareUrl,
+  publicProfile,
 }: ShareEmployerPublicProfileDialogProps) {
   const router = useRouter();
   const { addToast } = useToast();
   const [isCopied, setIsCopied] = useState(false);
 
+  // Generate URL based on publicProfile.shareToken or use provided shareUrl
+  const dynamicShareUrl = publicProfile?.shareToken
+    ? `${typeof window !== 'undefined' ? window.location.origin : ''}/public-profile/${publicProfile.shareToken}`
+    : shareUrl || (typeof window !== 'undefined' ? window.location.origin + '/public-profile' : '');
+
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(shareUrl);
+    navigator.clipboard.writeText(dynamicShareUrl);
     setIsCopied(true);
     addToast('Đã sao chép liên kết hồ sơ công khai!', 'success');
     setTimeout(() => setIsCopied(false), 2000);
@@ -42,18 +54,20 @@ export default function ShareEmployerPublicProfileDialog({
 
   const handleShareViaEmail = () => {
     const subject = `Hồ sơ công khai của ${employerProfile?.companyName || 'công ty tôi'}`;
-    const body = `Xem hồ sơ công khai của tôi: ${shareUrl}`;
+    const body = `Xem hồ sơ công khai của tôi: ${dynamicShareUrl}`;
     window.location.href = `mailto:?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     onClose();
   };
 
   const handleShareViaFacebook = () => {
-    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(shareUrl)}`;
+    const url = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(dynamicShareUrl)}`;
     window.open(url, '_blank', 'width=600,height=400');
   };
 
   const handleViewPublicProfile = () => {
-    router.push('/public-profile');
+    if (publicProfile?.shareToken) {
+      router.push(`/public-profile/${publicProfile.shareToken}`);
+    }
     onClose();
   };
 
@@ -81,7 +95,7 @@ export default function ShareEmployerPublicProfileDialog({
             <div className="flex items-center gap-2 p-3 rounded-lg bg-slate-800 border border-slate-700">
               <input
                 type="text"
-                value={shareUrl}
+                value={dynamicShareUrl}
                 readOnly
                 className="flex-1 bg-transparent text-sm text-gray-300 outline-none text-ellipsis"
                 style={{ fontFamily: "'Poppins Regular', sans-serif" }}
@@ -90,11 +104,10 @@ export default function ShareEmployerPublicProfileDialog({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={handleCopyLink}
-                className={`p-2 rounded-lg transition-all ${
-                  isCopied
-                    ? 'bg-green-500/20 text-green-400'
-                    : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400'
-                }`}
+                className={`p-2 rounded-lg transition-all ${isCopied
+                  ? 'bg-green-500/20 text-green-400'
+                  : 'bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400'
+                  }`}
               >
                 <AnimatePresence mode="wait">
                   {isCopied ? (

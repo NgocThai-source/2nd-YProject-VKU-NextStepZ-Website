@@ -6,10 +6,6 @@
   <strong>Your First Step to the Future</strong>
 </p>
 
-<p align="center">
-  <em>A Full-Stack Academic Web Project</em>
-</p>
-
 ---
 
 ## 📖 Overview

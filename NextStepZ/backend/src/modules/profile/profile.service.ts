@@ -984,7 +984,7 @@ export class ProfileService {
     // Format posts to match frontend interface
     const formattedPosts = userPosts.map((post) => ({
       id: post.id,
-      title: post.title,
+      title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
       excerpt: post.content.substring(0, 150),
       category: 'Bài viết',
       postDate: new Date(post.createdAt).toLocaleDateString('vi-VN'),
@@ -995,9 +995,17 @@ export class ProfileService {
       },
     }));
 
+    // Get follower count for this user
+    const followerCount = await this.prisma.follow.count({
+      where: {
+        followingId: publicProfile.profile.userId,
+      },
+    });
+
     return {
       ...publicProfile,
       viewCount: currentViewCount, // Use the accurate view count
+      followerCount, // Add follower count
       profile: {
         ...publicProfile.profile,
         userPosts: formattedPosts,
@@ -1119,7 +1127,7 @@ export class ProfileService {
     // Format posts to match frontend interface
     const formattedPosts = userPosts.map((post) => ({
       id: post.id,
-      title: post.title,
+      title: post.content.substring(0, 50) + (post.content.length > 50 ? '...' : ''),
       excerpt: post.content.substring(0, 150),
       category: 'Bài viết',
       postDate: new Date(post.createdAt).toLocaleDateString('vi-VN'),

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Share2, UserPlus, MessageSquare, Flag, Clock } from 'lucide-react';
+import { ArrowLeft, Share2, UserPlus, MessageSquare, Flag, Clock, Users } from 'lucide-react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { PublicPersonalInfoCard, PublicProfessionalInfoCard, PublicForumPostsCar
 import { useProfileUpdates } from '@/lib/hooks/use-profile-updates';
 import { useAuth } from '@/lib/auth-context';
 import { API_URL } from '@/lib/api';
+import { followUser, unfollowUser, checkFollowStatus } from '@/lib/services/follow-api';
 
 const DEFAULT_AVATAR = 'https://api.dicebear.com/7.x/avataaars/svg?seed=default';
 
@@ -107,6 +108,7 @@ interface PublicProfileData {
   shareToken: string;
   isActive: boolean;
   viewCount: number;
+  followerCount?: number; // Add follower count
   profile: {
     id: string;
     firstName: string | null;
@@ -148,7 +150,8 @@ export default function PublicProfileTokenPage() {
   const [publicProfile, setPublicProfile] = useState<PublicProfileData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFriendRequested, setIsFriendRequested] = useState(false);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [isFollowLoading, setIsFollowLoading] = useState(false);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState(false);
   const { getToken } = useAuth();
 
@@ -251,13 +254,62 @@ export default function PublicProfileTokenPage() {
     setIsShareDialogOpen(true);
   };
 
-  const handleAddFriend = () => {
-    if (isFriendRequested) {
-      addToast('Đã hủy lời mời kết bạn!', 'warning');
-      setIsFriendRequested(false);
-    } else {
-      addToast('Lời mời kết bạn đã được gửi!', 'success');
-      setIsFriendRequested(true);
+  // Check follow status on mount
+  useEffect(() => {
+    const checkFollow = async () => {
+      if (!publicProfile?.profile?.user?.id) return;
+      const token = getToken?.();
+      if (!token) return;
+
+      try {
+        const status = await checkFollowStatus(publicProfile.profile.user.id, token);
+        setIsFollowing(status.isFollowing);
+      } catch (err) {
+        console.warn('Error checking follow status:', err);
+      }
+    };
+    checkFollow();
+  }, [publicProfile?.profile?.user?.id, getToken]);
+
+  const handleFollow = async () => {
+    const token = getToken?.();
+    const targetUserId = publicProfile?.profile?.user?.id;
+
+    if (!token) {
+      addToast('Vui lòng đăng nhập để sử dụng chức năng', 'warning');
+      return;
+    }
+
+    if (!targetUserId) {
+      addToast('Không thể theo dõi người dùng này', 'error');
+      return;
+    }
+
+    setIsFollowLoading(true);
+    try {
+      if (isFollowing) {
+        await unfollowUser(targetUserId, token);
+        setIsFollowing(false);
+        // Update local follower count
+        setPublicProfile(prev => prev ? {
+          ...prev,
+          followerCount: Math.max(0, (prev.followerCount || 0) - 1)
+        } : null);
+        addToast('Đã hủy theo dõi!', 'info');
+      } else {
+        await followUser(targetUserId, token);
+        setIsFollowing(true);
+        // Update local follower count
+        setPublicProfile(prev => prev ? {
+          ...prev,
+          followerCount: (prev.followerCount || 0) + 1
+        } : null);
+        addToast('Đã theo dõi thành công!', 'success');
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Có lỗi xảy ra', 'error');
+    } finally {
+      setIsFollowLoading(false);
     }
   };
 
@@ -414,14 +466,15 @@ export default function PublicProfileTokenPage() {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={handleAddFriend}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${isFriendRequested
+                      onClick={handleFollow}
+                      disabled={isFollowLoading}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${isFollowing
                         ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
                         : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
-                        }`}
+                        } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                       style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                     >
-                      {isFriendRequested ? (
+                      {isFollowing ? (
                         <>
                           <UserPlus className="w-4 h-4" />
                           Hủy theo dõi
@@ -606,6 +659,10 @@ export default function PublicProfileTokenPage() {
                       <span className="text-gray-400 text-sm">Lượt xem trang</span>
                       <span className="text-amber-400 font-bold">{publicProfile.viewCount}</span>
                     </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Người theo dõi</span>
+                      <span className="text-green-400 font-bold">{publicProfile.followerCount || 0}</span>
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -675,14 +732,15 @@ export default function PublicProfileTokenPage() {
                     <motion.button
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      onClick={handleAddFriend}
-                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${isFriendRequested
+                      onClick={handleFollow}
+                      disabled={isFollowLoading}
+                      className={`w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg transition-all border ${isFollowing
                         ? 'bg-cyan-500/20 hover:bg-cyan-500/30 border-cyan-400/50 hover:border-cyan-400 text-cyan-400'
                         : 'bg-green-500/20 hover:bg-green-500/30 border-green-400/50 hover:border-green-400 text-green-400'
-                        }`}
+                        } ${isFollowLoading ? 'opacity-50 cursor-not-allowed' : ''}`}
                       style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                     >
-                      {isFriendRequested ? (
+                      {isFollowing ? (
                         <>
                           <UserPlus className="w-4 h-4" />
                           Hủy theo dõi
@@ -801,6 +859,10 @@ export default function PublicProfileTokenPage() {
                     <div className="flex justify-between items-center">
                       <span className="text-gray-400 text-sm">Lượt xem trang</span>
                       <span className="text-cyan-400 font-bold">{publicProfile.viewCount}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400 text-sm">Người theo dõi</span>
+                      <span className="text-green-400 font-bold">{publicProfile.followerCount || 0}</span>
                     </div>
                   </CardContent>
                 </Card>

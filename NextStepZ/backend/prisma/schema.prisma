@@ -49,12 +49,30 @@ model User {
   posts     Post[]
   comments  Comment[]
   likes     Like[]
+  commentLikes CommentLike[]
   messages  Message[]
+  following Follow[]  @relation("UserFollowing")
+  followers Follow[]  @relation("UserFollowers")
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+// Follow Model - User follows another user
+model Follow {
+  id          String   @id @default(cuid())
+  followerId  String   // User who is following
+  followingId String   // User being followed
+  
+  follower    User     @relation("UserFollowing", fields: [followerId], references: [id], onDelete: Cascade)
+  following   User     @relation("UserFollowers", fields: [followingId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+
+  @@unique([followerId, followingId]) // Prevent duplicate follows
+  @@map("follows")
 }
 
 // User Profile Model - Detailed profile for each user
@@ -294,18 +312,22 @@ model SavedPortfolio {
   @@map("saved_portfolios")
 }
 
-// Post Model (for Community)
+// Post Model (for Community) - Enhanced with topics, hashtags, images
 model Post {
   id          String   @id @default(cuid())
   userId      String
   user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
-  title       String
   content     String
-  imageUrl    String?
+  category    String   @default("discussion") // job-search, experience, discussion, question, offer, opportunity
+  topics      String[] @default([])          // Topic IDs
+  hashtags    String[] @default([])          // Hashtags like #React, #TypeScript
+  images      String[] @default([])          // Image URLs
   
   comments    Comment[]
   likes       Like[]
+  
+  shareCount  Int      @default(0)
   
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -313,7 +335,7 @@ model Post {
   @@map("posts")
 }
 
-// Comment Model
+// Comment Model - Enhanced with reply support and likes
 model Comment {
   id        String   @id @default(cuid())
   postId    String
@@ -321,12 +343,32 @@ model Comment {
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   
+  parentId  String?                          // Parent comment for replies
+  parent    Comment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   Comment[] @relation("CommentReplies")
+  
   content   String
+  
+  likes     CommentLike[]
   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("comments")
+}
+
+// CommentLike Model - For liking comments
+model CommentLike {
+  id        String   @id @default(cuid())
+  commentId String
+  comment   Comment  @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([commentId, userId])
+  @@map("comment_likes")
 }
 
 // Like Model

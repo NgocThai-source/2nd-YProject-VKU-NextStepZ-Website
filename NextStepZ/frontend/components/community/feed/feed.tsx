@@ -1,12 +1,71 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { useState, useMemo, useEffect } from 'react';
-import { Post, mockPosts } from '@/lib/community-mock-data';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { PostCard } from './post-card';
 import { PostReportModal } from './post-report-modal';
 import { PostSkeleton } from '../shared/skeleton-loader';
 import type { FilterType } from './feed-filter';
+import * as communityApi from '@/lib/community-api';
+import { Post as MockPost, mockTopics } from '@/lib/community-mock-data';
+
+// Transform API post to match existing component interface
+interface TransformedPost {
+  id: string;
+  author: {
+    id: string;
+    name: string;
+    avatar: string;
+    role: 'user' | 'employer';
+    title?: string;
+    company?: string;
+    followers: number;
+    following: number;
+    isFollowing?: boolean;
+    verified?: boolean;
+  };
+  content: string;
+  category: 'job-search' | 'experience' | 'discussion' | 'question' | 'offer' | 'opportunity';
+  topics?: string[];
+  images: string[];
+  hashtags: string[];
+  timestamp: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  saves: number;
+  isLiked?: boolean;
+  isSaved?: boolean;
+}
+
+function transformApiPostToFrontend(post: communityApi.Post): TransformedPost {
+  return {
+    id: post.id,
+    author: {
+      id: post.user.id,
+      name: `${post.user.firstName || ''} ${post.user.lastName || ''}`.trim() || post.user.username,
+      avatar: post.user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+      role: post.user.role as 'user' | 'employer',
+      title: post.user.role === 'employer' ? post.user.companyName || undefined : undefined,
+      company: post.user.companyName || undefined,
+      followers: 0,
+      following: 0,
+      verified: false,
+    },
+    content: post.content,
+    category: post.category as TransformedPost['category'],
+    topics: post.topics,
+    images: post.images,
+    hashtags: post.hashtags,
+    timestamp: post.createdAt,
+    likes: post.likesCount,
+    comments: post.commentsCount,
+    shares: post.shareCount,
+    saves: 0,
+    isLiked: post.isLiked,
+    isSaved: false,
+  };
+}
 
 interface FeedProps {
   onCreatePostClick?: () => void;
@@ -16,7 +75,7 @@ interface FeedProps {
   selectedHashtags?: string[];
   selectedTopics?: string[];
   searchQuery?: string;
-  newPost?: Post | null;
+  newPost?: MockPost | null;
 }
 
 export function Feed({
@@ -29,14 +88,62 @@ export function Feed({
   searchQuery = '',
   newPost = null,
 }: FeedProps) {
-  const [posts, setPosts] = useState<Post[]>(mockPosts);
-  const [isLoading, setIsLoading] = useState(false);
-  const [reportingPost, setReportingPost] = useState<Post | null>(null);
+  const [posts, setPosts] = useState<TransformedPost[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [reportingPost, setReportingPost] = useState<TransformedPost | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Thêm bài viết mới vào đầu feed
+  // Load posts from API
+  const loadPosts = useCallback(async (pageNum: number, append: boolean = false) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const response = await communityApi.getPosts(pageNum, 10);
+      const transformedPosts = response.posts.map(transformApiPostToFrontend);
+
+      if (append) {
+        setPosts(prev => [...prev, ...transformedPosts]);
+      } else {
+        setPosts(transformedPosts);
+      }
+
+      setHasMore(pageNum < response.pagination.totalPages);
+    } catch (err) {
+      console.error('Error loading posts:', err);
+      setError('Không thể tải bài viết. Vui lòng thử lại sau.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    loadPosts(1);
+  }, [loadPosts]);
+
+  // Add new post when created
   useEffect(() => {
     if (newPost) {
-      setPosts((prevPosts) => [newPost, ...prevPosts]);
+      // Transform the mock post format to match our transformed format
+      const transformedNewPost: TransformedPost = {
+        id: newPost.id,
+        author: newPost.author,
+        content: newPost.content,
+        category: newPost.category,
+        topics: newPost.topics,
+        images: newPost.images,
+        hashtags: newPost.hashtags,
+        timestamp: newPost.timestamp,
+        likes: newPost.likes,
+        comments: newPost.comments,
+        shares: newPost.shares,
+        saves: newPost.saves,
+        isLiked: newPost.isLiked,
+        isSaved: newPost.isSaved,
+      };
+      setPosts((prevPosts) => [transformedNewPost, ...prevPosts]);
     }
   }, [newPost]);
 
@@ -80,7 +187,7 @@ export function Feed({
 
     // Sort by trending (most likes + comments)
     if (filter === 'trending') {
-      result.sort((a, b) => {
+      result = [...result].sort((a, b) => {
         const scoreA = a.likes + a.comments * 2;
         const scoreB = b.likes + b.comments * 2;
         return scoreB - scoreA;
@@ -91,17 +198,45 @@ export function Feed({
   }, [posts, filter, selectedHashtags, selectedTopics, searchQuery]);
 
   const handleLoadMore = async () => {
-    setIsLoading(true);
-    await new Promise((resolve) => setTimeout(resolve, 500));
-    setIsLoading(false);
+    if (!hasMore || isLoading) return;
+    const nextPage = page + 1;
+    setPage(nextPage);
+    await loadPosts(nextPage, true);
   };
+
+  const handleLike = async (postId: string) => {
+    if (!communityApi.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng chức năng này');
+      return;
+    }
+
+    try {
+      const result = await communityApi.toggleLike(postId);
+      setPosts(prev => prev.map(post => {
+        if (post.id === postId) {
+          return {
+            ...post,
+            isLiked: result.isLiked,
+            likes: result.isLiked ? post.likes + 1 : post.likes - 1,
+          };
+        }
+        return post;
+      }));
+      onPostInteraction?.(postId, 'like');
+    } catch (err) {
+      console.error('Error toggling like:', err);
+    }
+  };
+
+  // Cast to any for PostCard compatibility since it expects MockPost type
+  const castPost = (post: TransformedPost): any => post;
 
   return (
     <div className="space-y-4">
       {/* Post Report Modal */}
       <PostReportModal
         isOpen={!!reportingPost}
-        post={reportingPost}
+        post={reportingPost as any}
         onClose={() => setReportingPost(null)}
         onSubmit={(reason, description) => {
           console.log('Post reported:', {
@@ -109,10 +244,39 @@ export function Feed({
             reason,
             description,
           });
-          // Here you would typically send this to your backend API
         }}
       />
-      {filteredPosts.length === 0 && (
+
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center py-6 text-red-400"
+        >
+          <p>{error}</p>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => loadPosts(1)}
+            className="mt-2 px-4 py-2 rounded-lg bg-cyan-500/20 text-cyan-300 hover:bg-cyan-500/30"
+          >
+            Thử lại
+          </motion.button>
+        </motion.div>
+      )}
+
+      {/* Loading Initial */}
+      {isLoading && posts.length === 0 && (
+        <div className="space-y-4">
+          {[1, 2, 3].map((i) => (
+            <PostSkeleton key={i} />
+          ))}
+        </div>
+      )}
+
+      {/* Empty State */}
+      {!isLoading && filteredPosts.length === 0 && !error && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -137,8 +301,8 @@ export function Feed({
         {filteredPosts.map((post) => (
           <PostCard
             key={post.id}
-            post={post}
-            onLike={() => onPostInteraction?.(post.id, 'like')}
+            post={castPost(post)}
+            onLike={() => handleLike(post.id)}
             onComment={() => onPostInteraction?.(post.id, 'comment')}
             onSave={() => onPostInteraction?.(post.id, 'save')}
             onShare={() => onPostInteraction?.(post.id, 'share')}
@@ -149,7 +313,7 @@ export function Feed({
       </div>
 
       {/* Load More Button */}
-      {filteredPosts.length > 0 && (
+      {hasMore && filteredPosts.length > 0 && (
         <motion.button
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
@@ -161,10 +325,10 @@ export function Feed({
         </motion.button>
       )}
 
-      {/* Loading Skeleton */}
-      {isLoading && (
+      {/* Loading More Skeleton */}
+      {isLoading && posts.length > 0 && (
         <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
+          {[1, 2].map((i) => (
             <PostSkeleton key={i} />
           ))}
         </div>

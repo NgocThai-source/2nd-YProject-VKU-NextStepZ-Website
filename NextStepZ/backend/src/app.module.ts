@@ -7,6 +7,8 @@ import { AuthModule } from './modules/auth/auth.module';
 import { ProfileModule } from './modules/profile/profile.module';
 import { EmployerModule } from './modules/employer/employer.module';
 import { SavedPortfolioModule } from './modules/saved-portfolio/saved-portfolio.module';
+import { FollowModule } from './modules/follow/follow.module';
+import { CommunityModule } from './modules/community/community.module';
 import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
 
 @Module({
@@ -20,6 +22,8 @@ import { RateLimitMiddleware } from './common/middleware/rate-limit.middleware';
     ProfileModule,
     EmployerModule,
     SavedPortfolioModule,
+    FollowModule,
+    CommunityModule,
   ],
   controllers: [AppController],
   providers: [AppService],

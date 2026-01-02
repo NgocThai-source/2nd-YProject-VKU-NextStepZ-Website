@@ -77,7 +77,14 @@ export function CreatePostModal({
     }
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
+    // Check authentication
+    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
+    if (!token) {
+      setErrors(['Vui lòng đăng nhập để sử dụng chức năng này']);
+      return;
+    }
+
     const newErrors: string[] = [];
 
     if (!content.trim()) {
@@ -95,26 +102,64 @@ export function CreatePostModal({
       return;
     }
 
-    // Create post object with generated ID
-    const newPost: Post = {
-      id: `post-${postIdCounterRef.current++}`,
-      author: mockUsers[0], // Current user mock
-      content: content.trim(),
-      category,
-      topics: selectedTopics,
-      images,
-      hashtags,
-      timestamp: new Date().toISOString(),
-      likes: 0,
-      comments: 0,
-      shares: 0,
-      saves: 0,
-      isLiked: false,
-      isSaved: false,
-    };
+    try {
+      // Call API to create post
+      const response = await fetch('http://localhost:3001/api/community/posts', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          content: content.trim(),
+          category,
+          topics: selectedTopics,
+          hashtags,
+          images,
+        }),
+      });
 
-    onSubmit?.(newPost);
-    handleClose();
+      if (!response.ok) {
+        const error = await response.json();
+        setErrors([error.message || 'Không thể tạo bài viết']);
+        return;
+      }
+
+      const createdPost = await response.json();
+
+      // Transform to mock format for frontend compatibility
+      const newPost: Post = {
+        id: createdPost.id,
+        author: {
+          id: createdPost.user.id,
+          name: `${createdPost.user.firstName || ''} ${createdPost.user.lastName || ''}`.trim() || createdPost.user.username,
+          avatar: createdPost.user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+          role: createdPost.user.role,
+          title: createdPost.user.role === 'employer' ? createdPost.user.companyName : undefined,
+          followers: 0,
+          following: 0,
+          verified: false,
+        },
+        content: createdPost.content,
+        category: createdPost.category,
+        topics: createdPost.topics,
+        images: createdPost.images,
+        hashtags: createdPost.hashtags,
+        timestamp: createdPost.createdAt,
+        likes: 0,
+        comments: 0,
+        shares: 0,
+        saves: 0,
+        isLiked: false,
+        isSaved: false,
+      };
+
+      onSubmit?.(newPost);
+      handleClose();
+    } catch (error) {
+      console.error('Error creating post:', error);
+      setErrors(['Đã xảy ra lỗi khi tạo bài viết. Vui lòng thử lại.']);
+    }
   };
 
   const handleClose = () => {
@@ -197,11 +242,10 @@ export function CreatePostModal({
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => setCategory(cat.id)}
-                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${
-                          category === cat.id
-                            ? 'bg-cyan-400 text-slate-900 shadow-lg shadow-cyan-400/50'
-                            : 'bg-white/10 text-gray-300 border border-white/10 hover:bg-white/20'
-                        }`}
+                        className={`px-4 py-2 rounded-lg font-medium text-sm transition-all ${category === cat.id
+                          ? 'bg-cyan-400 text-slate-900 shadow-lg shadow-cyan-400/50'
+                          : 'bg-white/10 text-gray-300 border border-white/10 hover:bg-white/20'
+                          }`}
                         style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                       >
                         {cat.label}
@@ -229,11 +273,10 @@ export function CreatePostModal({
                               : [...selectedTopics, topic.id]
                           );
                         }}
-                        className={`relative group px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all duration-300 shrink-0 ${
-                          selectedTopics.includes(topic.id)
-                            ? 'bg-linear-to-r from-violet-500 to-purple-500 text-white shadow-lg shadow-violet-500/30 border border-violet-400'
-                            : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 hover:border-violet-400/50'
-                        }`}
+                        className={`relative group px-4 py-2 rounded-full whitespace-nowrap text-sm font-semibold transition-all duration-300 shrink-0 ${selectedTopics.includes(topic.id)
+                          ? 'bg-linear-to-r from-violet-500 to-purple-500 text-white shadow-lg shadow-violet-500/30 border border-violet-400'
+                          : 'bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white border border-white/10 hover:border-violet-400/50'
+                          }`}
                       >
                         <span className="flex items-center gap-2">
                           <span>{topic.icon}</span>
@@ -264,9 +307,8 @@ export function CreatePostModal({
                     <span>{charCount} / {charLimit} ký tự</span>
                     <div className="w-24 h-1 bg-gray-700 rounded-full overflow-hidden">
                       <div
-                        className={`h-full transition-all ${
-                          charCount > charLimit * 0.9 ? 'bg-red-500' : 'bg-cyan-400'
-                        }`}
+                        className={`h-full transition-all ${charCount > charLimit * 0.9 ? 'bg-red-500' : 'bg-cyan-400'
+                          }`}
                         style={{ width: `${Math.min((charCount / charLimit) * 100, 100)}%` }}
                       />
                     </div>
@@ -287,7 +329,7 @@ export function CreatePostModal({
                     className="w-full px-4 py-2 rounded-lg bg-white/5 border border-cyan-400/20 text-white placeholder-gray-500 focus:border-cyan-400/60 outline-none transition-all"
                     style={{ fontFamily: "'Poppins Regular', sans-serif" }}
                   />
-                  
+
                   {/* Suggested Hashtags */}
                   <div className="mt-3 space-y-2">
                     <p className="text-xs text-gray-400">Gợi ý:</p>
@@ -343,7 +385,7 @@ export function CreatePostModal({
                     onChange={handleImageUpload}
                     className="hidden"
                   />
-                  
+
                   {images.length < 4 && (
                     <motion.button
                       whileHover={{ scale: 1.02 }}

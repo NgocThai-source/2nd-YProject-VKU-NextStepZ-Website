@@ -1,62 +1,240 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { Send, MessageCircle } from 'lucide-react';
-import { useState } from 'react';
-import { Comment } from '@/lib/community-mock-data';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Send, MessageCircle, Loader2 } from 'lucide-react';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Comment as MockComment, CommunityUser } from '@/lib/community-mock-data';
 import { Avatar } from '../shared/avatar';
 import { CommentCard } from './comment-card';
-import { mockUsers } from '@/lib/community-mock-data';
+import * as communityApi from '@/lib/community-api';
 
 interface CommentSectionProps {
-  comments: Comment[];
+  postId: string;
+  comments?: MockComment[];
   totalComments: number;
   onAddComment?: (content: string) => void;
   onReplyComment?: (commentId: string, content: string) => void;
   onLikeComment?: (commentId: string) => void;
+  onCommentCountChange?: (count: number) => void;
+}
+
+// Get current user from profile context or localStorage
+function getCurrentUser(): CommunityUser | null {
+  if (typeof window === 'undefined') return null;
+
+  const profileData = localStorage.getItem('profileData');
+  if (profileData) {
+    try {
+      const profile = JSON.parse(profileData);
+      return {
+        id: profile.id || 'current-user',
+        name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username || 'User',
+        avatar: profile.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=current-user',
+        role: profile.role || 'user',
+        followers: 0,
+        following: 0,
+      };
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  return {
+    id: 'guest',
+    name: 'Người dùng',
+    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest',
+    role: 'user',
+    followers: 0,
+    following: 0,
+  };
+}
+
+// Transform API comment to mock format
+function transformApiComment(apiComment: communityApi.Comment): MockComment {
+  return {
+    id: apiComment.id,
+    author: {
+      id: apiComment.author.id,
+      name: apiComment.author.name,
+      avatar: apiComment.author.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+      role: apiComment.author.role as 'user' | 'employer',
+      followers: 0,
+      following: 0,
+    },
+    content: apiComment.content,
+    timestamp: apiComment.createdAt,
+    likes: apiComment.likesCount,
+    replies: apiComment.repliesCount,
+    isLiked: apiComment.isLiked,
+    replyList: apiComment.replies?.map(transformApiComment) || [],
+  };
 }
 
 export function CommentSection({
+  postId,
   comments: initialComments,
   totalComments: initialTotalComments,
   onAddComment,
   onReplyComment,
   onLikeComment,
+  onCommentCountChange,
 }: CommentSectionProps) {
   const [newComment, setNewComment] = useState('');
-  const [comments, setComments] = useState<Comment[]>(initialComments);
+  const [comments, setComments] = useState<MockComment[]>(initialComments || []);
   const [totalComments, setTotalComments] = useState(initialTotalComments);
+  const [isLoading, setIsLoading] = useState(!initialComments);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const currentUser = mockUsers[0];
+  const currentUser = getCurrentUser();
+  const isAuthenticated = communityApi.isAuthenticated();
 
-  const handleAddComment = () => {
-    if (newComment.trim()) {
-      // Create new comment
-      const newCommentObj: Comment = {
-        id: `comment-${Date.now()}`,
-        author: currentUser,
-        content: newComment,
-        timestamp: new Date().toISOString(),
-        likes: 0,
-        replies: 0,
-        isLiked: false,
-        replyList: [],
+  // Use ref to avoid infinite re-renders from inline callback prop
+  const onCommentCountChangeRef = useRef(onCommentCountChange);
+  useEffect(() => {
+    onCommentCountChangeRef.current = onCommentCountChange;
+  }, [onCommentCountChange]);
+
+  // Load comments from API
+  const loadComments = useCallback(async () => {
+    if (!postId) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const apiComments = await communityApi.getComments(postId);
+      const transformedComments = apiComments.map(transformApiComment);
+      setComments(transformedComments);
+
+      // Calculate total with replies
+      let total = 0;
+      const countReplies = (cmts: MockComment[]) => {
+        cmts.forEach(c => {
+          total++;
+          if (c.replyList && c.replyList.length > 0) {
+            countReplies(c.replyList);
+          }
+        });
       };
+      countReplies(transformedComments);
+      setTotalComments(total);
+      // Note: onCommentCountChange is called separately after loadComments completes
+      // to avoid infinite re-renders from callback dependency changes
+    } catch (err) {
+      console.error('Error loading comments:', err);
+      setError('Không thể tải bình luận');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [postId]);
 
-      // Add to comments
-      setComments([newCommentObj, ...comments]);
-      setTotalComments(totalComments + 1);
+  // Load comments on mount if not provided
+  useEffect(() => {
+    if (!initialComments && postId) {
+      loadComments();
+    }
+  }, [initialComments, postId, loadComments]);
+
+  // Notify parent of comment count changes (separate from loadComments to avoid infinite loops)
+  useEffect(() => {
+    onCommentCountChangeRef.current?.(totalComments);
+  }, [totalComments]);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+
+    if (!isAuthenticated) {
+      setError('Vui lòng đăng nhập để sử dụng chức năng này');
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+      setError(null);
+
+      const apiComment = await communityApi.addComment(postId, newComment.trim());
+      const transformedComment = transformApiComment(apiComment);
+
+      // Add to comments list
+      setComments(prev => [transformedComment, ...prev]);
+      setTotalComments(prev => prev + 1);
+      onCommentCountChange?.(totalComments + 1);
 
       // Call callback
       onAddComment?.(newComment);
 
       // Reset
       setNewComment('');
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      setError('Không thể thêm bình luận. Vui lòng thử lại.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleLikeComment = (commentId: string) => {
-    onLikeComment?.(commentId);
+  const handleReplyComment = async (parentId: string, content: string) => {
+    if (!isAuthenticated) {
+      setError('Vui lòng đăng nhập để sử dụng chức năng này');
+      return;
+    }
+
+    try {
+      // Create the reply via API
+      await communityApi.addComment(postId, content, parentId);
+
+      // Re-fetch all comments to ensure state is synced with backend
+      // This ensures nested replies (reply-to-reply) are properly positioned in the tree
+      await loadComments();
+
+      onReplyComment?.(parentId, content);
+    } catch (err) {
+      console.error('Error adding reply:', err);
+      setError('Không thể thêm phản hồi. Vui lòng thử lại.');
+    }
+  };
+
+  const handleLikeComment = async (commentId: string) => {
+    if (!isAuthenticated) {
+      setError('Vui lòng đăng nhập để sử dụng chức năng này');
+      return;
+    }
+
+    try {
+      const result = await communityApi.toggleCommentLike(commentId);
+
+      // Update comment in tree
+      const updateLike = (cmts: MockComment[]): MockComment[] => {
+        return cmts.map(c => {
+          if (c.id === commentId) {
+            return {
+              ...c,
+              isLiked: result.isLiked,
+              likes: result.isLiked ? c.likes + 1 : c.likes - 1,
+            };
+          }
+          if (c.replyList && c.replyList.length > 0) {
+            return {
+              ...c,
+              replyList: updateLike(c.replyList),
+            };
+          }
+          return c;
+        });
+      };
+
+      setComments(prev => updateLike(prev));
+      onLikeComment?.(commentId);
+    } catch (err) {
+      console.error('Error toggling like:', err);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleAddComment();
+    }
   };
 
   return (
@@ -65,15 +243,28 @@ export function CommentSection({
       animate={{ opacity: 1 }}
       className="space-y-3"
     >
+      {/* Error Message */}
+      {error && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center py-2 text-red-400 text-sm bg-red-500/10 rounded-lg"
+        >
+          {error}
+        </motion.div>
+      )}
+
       {/* Comment Input Box - Facebook Style */}
       <div className="flex items-start gap-2">
-        <Avatar src={currentUser.avatar} alt={currentUser.name} size="sm" />
+        <Avatar src={currentUser?.avatar || ''} alt={currentUser?.name || ''} size="sm" />
         <div className="flex-1">
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
-            placeholder="Viết bình luận..."
-            className="w-full p-2.5 rounded-2xl bg-white/10 border border-cyan-400/20 text-white placeholder-gray-500 focus:border-cyan-400/60 outline-none transition-all resize-none text-sm"
+            onKeyDown={handleKeyPress}
+            placeholder={isAuthenticated ? "Viết bình luận..." : "Đăng nhập để bình luận..."}
+            disabled={!isAuthenticated || isSubmitting}
+            className="w-full p-2.5 rounded-2xl bg-white/10 border border-cyan-400/20 text-white placeholder-gray-500 focus:border-cyan-400/60 outline-none transition-all resize-none text-sm disabled:opacity-50"
             style={{ fontFamily: "'Poppins Regular', sans-serif" }}
             rows={1}
           />
@@ -83,43 +274,51 @@ export function CommentSection({
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleAddComment}
-              disabled={newComment.trim().length === 0}
+              disabled={newComment.trim().length === 0 || !isAuthenticated || isSubmitting}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-linear-to-r from-cyan-400 to-blue-500 text-white text-xs font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
             >
-              <Send className="w-3 h-3" />
+              {isSubmitting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
             </motion.button>
           </div>
         </div>
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+        </div>
+      )}
+
       {/* Comments List - Facebook Style */}
-      {comments.length > 0 && (
+      {!isLoading && comments.length > 0 && (
         <div className="space-y-2 max-h-96 overflow-y-auto">
-          {comments.map((comment) => (
-            <motion.div
-              key={comment.id}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="p-2"
-            >
-              <CommentCard
-                comment={comment}
-                onLike={handleLikeComment}
-                onReply={() => {}}
-                onAddReply={(parentId, content) => {
-                  onReplyComment?.(parentId, content);
-                }}
-                totalComments={totalComments}
-                onTotalCommentsChange={setTotalComments}
-              />
-            </motion.div>
-          ))}
+          <AnimatePresence>
+            {comments.map((comment) => (
+              <motion.div
+                key={comment.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="p-2"
+              >
+                <CommentCard
+                  comment={comment}
+                  onLike={handleLikeComment}
+                  onReply={() => { }}
+                  onAddReply={handleReplyComment}
+                  totalComments={totalComments}
+                  onTotalCommentsChange={setTotalComments}
+                />
+              </motion.div>
+            ))}
+          </AnimatePresence>
         </div>
       )}
 
       {/* No Comments */}
-      {comments.length === 0 && (
+      {!isLoading && comments.length === 0 && (
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}

@@ -8,7 +8,7 @@ import {
   HelpCircle,
   Search,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Feed } from '@/components/community/feed';
 import { CreatePostModal } from '@/components/community/feed';
 import { LeaderboardExpanded } from '@/components/community/leaderboard';
@@ -17,8 +17,9 @@ import { AdvancedSearch } from '@/components/community/shared';
 import { UserManagementDialog } from '@/components/community/shared';
 import { Recommendations } from '@/components/community/shared';
 import { FeedFilter, type FilterType } from '@/components/community/feed';
-import { mockLeaderboard, mockQuestions, mockUsers, Post, Question } from '@/lib/community-mock-data';
+import { mockQuestions, mockUsers, Post, Question, LeaderboardUser } from '@/lib/community-mock-data';
 import { QuestionsPage } from '@/components/community/questions';
+import * as communityApi from '@/lib/community-api';
 
 type SectionType = 'feed' | 'leaderboard' | 'questions';
 
@@ -29,6 +30,47 @@ export default function CommunityPage() {
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [newPost, setNewPost] = useState<Post | null>(null);
   const [questions, setQuestions] = useState<Question[]>(mockQuestions);
+  const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
+  const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
+
+  // Fetch leaderboard data from API
+  const loadLeaderboard = useCallback(async () => {
+    try {
+      setIsLeaderboardLoading(true);
+      const data = await communityApi.getLeaderboard(30);
+      // Transform API data to match LeaderboardUser interface
+      const transformed: LeaderboardUser[] = data.map(entry => ({
+        rank: entry.rank,
+        user: {
+          id: entry.user.id,
+          name: entry.user.name,
+          avatar: entry.user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+          role: entry.user.role as 'user' | 'employer',
+          title: entry.user.title,
+          verified: entry.user.verified,
+          followers: entry.user.followers,
+          following: 0,
+        },
+        score: entry.score,
+        posts: entry.posts,
+        likes: entry.likes,
+        followers: entry.followers,
+        streak: entry.streak,
+      }));
+      setLeaderboardData(transformed);
+    } catch (err) {
+      console.error('Error loading leaderboard:', err);
+    } finally {
+      setIsLeaderboardLoading(false);
+    }
+  }, []);
+
+  // Load leaderboard on mount and when switching to leaderboard tab
+  useEffect(() => {
+    if (activeSection === 'leaderboard' || activeSection === 'feed') {
+      loadLeaderboard();
+    }
+  }, [activeSection, loadLeaderboard]);
 
   // Feed filter state
   const [feedFilter, setFeedFilter] = useState<FilterType>('all');
@@ -215,7 +257,6 @@ export default function CommunityPage() {
               >
                 {/* Feature 9: Recommendations */}
                 <Recommendations
-                  users={mockUsers.slice(0, 3)}
                   onFollow={(userId) => console.log('Follow user:', userId)}
                   onDismiss={(userId) => console.log('Dismiss user:', userId)}
                 />
@@ -226,7 +267,7 @@ export default function CommunityPage() {
                     ⭐ Thành Viên Hàng Đầu
                   </h3>
                   <div className="space-y-3">
-                    {mockLeaderboard.slice(0, 5).map((leaderboardUser) => (
+                    {leaderboardData.slice(0, 5).map((leaderboardUser) => (
                       <motion.button
                         key={leaderboardUser.user.id}
                         whileHover={{ x: 4 }}
@@ -281,9 +322,9 @@ export default function CommunityPage() {
             >
               <div className="rounded-xl bg-white/5 border border-cyan-400/20 backdrop-blur-sm p-6 md:p-8 overflow-hidden">
                 <LeaderboardExpanded
-                  users={mockLeaderboard}
+                  users={leaderboardData}
                   onUserClick={(userId) => {
-                    const user = mockUsers.find((u) => u.id === userId);
+                    const user = leaderboardData.find((u) => u.user.id === userId)?.user || mockUsers.find((u) => u.id === userId);
                     if (user) {
                       setSelectedUser(user);
                       setIsUserProfileOpen(true);

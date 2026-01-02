@@ -1,18 +1,19 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useState, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, MessageCircle, Bookmark, ChevronLeft, MoreHorizontal, Flag } from 'lucide-react';
+import { Heart, MessageCircle, Bookmark, ChevronLeft, MoreHorizontal, Flag, Loader2 } from 'lucide-react';
 import Link from 'next/link';
-import { mockPosts, mockComments, mockTopics } from '@/lib/community-mock-data';
+import { mockTopics } from '@/lib/community-mock-data';
 import { CommentSection } from '@/components/community/feed/comment-section';
 import { Avatar } from '@/components/community/shared/avatar';
 import { PillTag } from '@/components/community/shared/pill-tag';
 import { formatTimeAgo } from '@/lib/community-utils';
+import * as communityApi from '@/lib/community-api';
 
-const categoryLabels = {
+const categoryLabels: Record<string, string> = {
   'job-search': '💼 Tìm Việc',
   experience: '📝 Kinh Nghiệm',
   discussion: '💬 Thảo Luận',
@@ -21,30 +22,141 @@ const categoryLabels = {
   opportunity: '⚡ Cơ Hội',
 };
 
+interface TransformedPost {
+  id: string;
+  author: {
+    id: string;
+    name: string;
+    avatar: string;
+    title?: string;
+    verified?: boolean;
+  };
+  content: string;
+  category: string;
+  topics?: string[];
+  images: string[];
+  hashtags: string[];
+  timestamp: string;
+  likes: number;
+  comments: number;
+  shares: number;
+  isLiked: boolean;
+  isSaved: boolean;
+}
+
 export default function SharedPostPage() {
   const params = useParams();
   const postId = params?.postId as string;
   const [showComments, setShowComments] = useState(false);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
+  const [post, setPost] = useState<TransformedPost | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const post = useMemo(() => {
-    return mockPosts.find(p => p.id === postId) || null;
+
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLiked, setIsLiked] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+
+  // Load post from API
+  const loadPost = useCallback(async () => {
+    if (!postId) return;
+
+    try {
+      setIsLoading(true);
+      setError(null);
+      const apiPost = await communityApi.getSharedPost(postId);
+
+      const transformed: TransformedPost = {
+        id: apiPost.id,
+        author: {
+          id: apiPost.user.id,
+          name: `${apiPost.user.firstName || ''} ${apiPost.user.lastName || ''}`.trim() || apiPost.user.username,
+          avatar: apiPost.user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+          title: apiPost.user.role === 'employer' ? apiPost.user.companyName || undefined : undefined,
+          verified: false,
+        },
+        content: apiPost.content,
+        category: apiPost.category,
+        topics: apiPost.topics,
+        images: apiPost.images,
+        hashtags: apiPost.hashtags,
+        timestamp: apiPost.createdAt,
+        likes: apiPost.likesCount,
+        comments: apiPost.commentsCount,
+        shares: apiPost.shareCount,
+        isLiked: false,
+        isSaved: false,
+      };
+
+      setPost(transformed);
+      setLikeCount(apiPost.likesCount);
+    } catch (err) {
+      console.error('Error loading post:', err);
+      setError('Bài viết này có thể đã bị xóa hoặc không tồn tại.');
+    } finally {
+      setIsLoading(false);
+    }
   }, [postId]);
 
-  const [likeCount, setLikeCount] = useState(post?.likes || 0);
-  const [isLiked, setIsLiked] = useState(post?.isLiked || false);
-  const [isSaved, setIsSaved] = useState(post?.isSaved || false);
+  useEffect(() => {
+    loadPost();
+  }, [loadPost]);
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
+  // Poll for real-time updates every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadPost();
+    }, 30000);
+
+    return () => clearInterval(interval);
+  }, [loadPost]);
+
+  const handleLike = async () => {
+    if (!communityApi.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng chức năng này');
+      return;
+    }
+
+    try {
+      const result = await communityApi.toggleLike(postId);
+      setIsLiked(result.isLiked);
+      setLikeCount(prev => result.isLiked ? prev + 1 : prev - 1);
+    } catch (err) {
+      console.error('Error toggling like:', err);
+    }
   };
 
   const handleSave = () => {
+    if (!communityApi.isAuthenticated()) {
+      alert('Vui lòng đăng nhập để sử dụng chức năng này');
+      return;
+    }
     setIsSaved(!isSaved);
   };
 
-  if (!post) {
+
+
+
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center"
+        >
+          <Loader2 className="w-8 h-8 text-cyan-400 animate-spin mx-auto mb-4" />
+          <p className="text-slate-400">Đang tải bài viết...</p>
+        </motion.div>
+      </div>
+    );
+  }
+
+  // Error or not found state
+  if (error || !post) {
     return (
       <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center">
         <motion.div
@@ -53,7 +165,7 @@ export default function SharedPostPage() {
           className="text-center"
         >
           <h1 className="text-3xl font-bold text-white mb-4">Không tìm thấy bài viết</h1>
-          <p className="text-slate-400 mb-8">Bài viết này có thể đã bị xóa hoặc không tồn tại.</p>
+          <p className="text-slate-400 mb-8">{error || 'Bài viết này có thể đã bị xóa hoặc không tồn tại.'}</p>
           <Link href="/community">
             <motion.button
               whileHover={{ scale: 1.05 }}
@@ -220,13 +332,12 @@ export default function SharedPostPage() {
           {post.images.length > 0 && (
             <div className="px-4 pb-4">
               <div
-                className={`grid gap-2 ${
-                  post.images.length === 1
-                    ? 'grid-cols-1'
-                    : post.images.length === 2
-                      ? 'grid-cols-2'
-                      : 'grid-cols-2'
-                }`}
+                className={`grid gap-2 ${post.images.length === 1
+                  ? 'grid-cols-1'
+                  : post.images.length === 2
+                    ? 'grid-cols-2'
+                    : 'grid-cols-2'
+                  }`}
               >
                 {post.images.map((image, idx) => (
                   <div
@@ -261,9 +372,8 @@ export default function SharedPostPage() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleLike}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                isLiked ? 'text-red-400 bg-red-500/10' : 'text-gray-400 hover:bg-white/5'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isLiked ? 'text-red-400 bg-red-500/10' : 'text-gray-400 hover:bg-white/5'
+                }`}
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
             >
               <Heart className="w-5 h-5" fill={isLiked ? 'currentColor' : 'none'} />
@@ -285,9 +395,8 @@ export default function SharedPostPage() {
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={handleSave}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                isSaved ? 'text-cyan-300 bg-cyan-400/10' : 'text-gray-400 hover:bg-white/5'
-              }`}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isSaved ? 'text-cyan-300 bg-cyan-400/10' : 'text-gray-400 hover:bg-white/5'
+                }`}
               style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
             >
               <Bookmark className="w-5 h-5" fill={isSaved ? 'currentColor' : 'none'} />
@@ -304,11 +413,11 @@ export default function SharedPostPage() {
               className="border-t border-cyan-400/10 px-4 py-4"
             >
               <CommentSection
-                comments={post.comments > 0 ? mockComments : []}
+                postId={postId}
                 totalComments={post.comments}
-                onAddComment={() => {}}
-                onReplyComment={() => {}}
-                onLikeComment={() => {}}
+                onCommentCountChange={(count) => {
+                  setPost(prev => prev ? { ...prev, comments: count } : null);
+                }}
               />
             </motion.div>
           )}

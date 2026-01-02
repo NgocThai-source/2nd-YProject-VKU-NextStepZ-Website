@@ -5,7 +5,7 @@ import { Heart, MessageCircle, Reply, ChevronDown, Send } from 'lucide-react';
 import { Comment } from '@/lib/community-mock-data';
 import { Avatar } from '../shared/avatar';
 import { CommentReply } from './comment-reply';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { calculateTotalComments } from '@/lib/community-utils';
@@ -14,7 +14,7 @@ interface CommentCardProps {
   comment: Comment;
   onLike?: (commentId: string) => void;
   onReply?: (commentId: string) => void;
-  onAddReply?: (parentId: string, content: string) => void;
+  onAddReply?: (parentId: string, content: string) => Promise<void>;
   totalComments?: number;
   onTotalCommentsChange?: (count: number) => void;
 }
@@ -35,38 +35,24 @@ export function CommentCard({
   const [replies, setReplies] = useState<Comment[]>(comment.replyList || []);
   const [replyCount, setReplyCount] = useState(comment.replies);
 
+  // Sync replies with prop changes (when parent updates after API call)
+  useEffect(() => {
+    setReplies(comment.replyList || []);
+    setReplyCount(comment.replies);
+  }, [comment.replyList, comment.replies]);
+
   const handleLike = () => {
     setIsLiked(!isLiked);
     setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
     onLike?.(comment.id);
   };
 
-  const handleReplySubmit = () => {
+  const handleReplySubmit = async () => {
     if (replyContent.trim()) {
-      // Create new reply
-      const newReply: Comment = {
-        id: `${comment.id}-reply-${Date.now()}`,
-        author: { id: '1', name: 'Bạn', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User', role: 'user', followers: 0, following: 0 },
-        content: replyContent,
-        timestamp: new Date().toISOString(),
-        likes: 0,
-        replies: 0,
-        isLiked: false,
-        replyList: [],
-      };
+      // Call parent to handle API call
+      await onAddReply?.(comment.id, replyContent.trim());
 
-      // Add to replies
-      const updatedReplies = [...replies, newReply];
-      setReplies(updatedReplies);
-      
-      // Calculate new total with updated replies
-      const newTotal = calculateTotalComments(updatedReplies);
-      onTotalCommentsChange?.(totalComments + 1);
-
-      // Call callback
-      onAddReply?.(comment.id, replyContent);
-
-      // Reset and show replies
+      // Reset input and show replies
       setReplyContent('');
       setIsReplyingTo(false);
       setShowReplies(true);
@@ -117,11 +103,10 @@ export function CommentCard({
             whileHover={{ scale: 1.1 }}
             whileTap={{ scale: 0.95 }}
             onClick={handleLike}
-            className={`transition-all ${
-              isLiked
-                ? 'text-red-400'
-                : 'hover:text-cyan-400'
-            }`}
+            className={`transition-all ${isLiked
+              ? 'text-red-400'
+              : 'hover:text-cyan-400'
+              }`}
           >
             <Heart
               className="w-3.5 h-3.5 inline mr-1"
@@ -153,9 +138,8 @@ export function CommentCard({
               className="text-cyan-400 transition-all flex items-center gap-1"
             >
               <ChevronDown
-                className={`w-3.5 h-3.5 transition-transform ${
-                  showReplies ? 'rotate-180' : ''
-                }`}
+                className={`w-3.5 h-3.5 transition-transform ${showReplies ? 'rotate-180' : ''
+                  }`}
               />
               <span>{calculateTotalComments(replies)}</span>
             </motion.button>
@@ -221,7 +205,8 @@ export function CommentCard({
                   reply={reply}
                   level={1}
                   onLike={onLike}
-                  onReply={() => {}}
+                  onReply={() => { }}
+                  onAddReply={onAddReply}
                 />
               ))}
             </motion.div>

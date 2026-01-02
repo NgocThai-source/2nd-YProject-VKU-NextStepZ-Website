@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import Image from 'next/image';
 import { useState, useEffect } from 'react';
-import { Post, mockComments, mockTopics } from '@/lib/community-mock-data';
+import { Post, mockTopics } from '@/lib/community-mock-data';
 import { Avatar } from '../shared/avatar';
 import { PillTag } from '../shared/pill-tag';
 import { formatTimeAgo } from '@/lib/community-utils';
@@ -248,13 +248,12 @@ export function PostCard({
       {post.images.length > 0 && (
         <div className="px-4 pb-4">
           <div
-            className={`grid gap-2 ${
-              post.images.length === 1
-                ? 'grid-cols-1'
-                : post.images.length === 2
-                  ? 'grid-cols-2'
-                  : 'grid-cols-2'
-            }`}
+            className={`grid gap-2 ${post.images.length === 1
+              ? 'grid-cols-1'
+              : post.images.length === 2
+                ? 'grid-cols-2'
+                : 'grid-cols-2'
+              }`}
           >
             {post.images.map((image, idx) => (
               <div
@@ -290,9 +289,8 @@ export function PostCard({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleLike}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-            isLiked ? 'text-red-400 bg-red-500/10' : 'text-gray-400 hover:bg-white/5'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isLiked ? 'text-red-400 bg-red-500/10' : 'text-gray-400 hover:bg-white/5'
+            }`}
           style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
         >
           <Heart className="w-5 h-5" fill={isLiked ? 'currentColor' : 'none'} />
@@ -328,9 +326,8 @@ export function PostCard({
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           onClick={handleSave}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-            isSaved ? 'text-cyan-300 bg-cyan-400/10' : 'text-gray-400 hover:bg-white/5'
-          }`}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${isSaved ? 'text-cyan-300 bg-cyan-400/10' : 'text-gray-400 hover:bg-white/5'
+            }`}
           style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
         >
           <Bookmark className="w-5 h-5" fill={isSaved ? 'currentColor' : 'none'} />
@@ -347,11 +344,11 @@ export function PostCard({
           className="border-t border-cyan-400/10 px-4 py-4"
         >
           <CommentSection
-            comments={post.comments > 0 ? mockComments : []}
+            postId={post.id}
             totalComments={post.comments}
-            onAddComment={() => {}}
-            onReplyComment={() => {}}
-            onLikeComment={() => {}}
+            onCommentCountChange={(count) => {
+              // Update comment count display if needed
+            }}
           />
         </motion.div>
       )}

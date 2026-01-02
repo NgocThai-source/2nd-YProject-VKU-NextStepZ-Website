@@ -4,235 +4,204 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Reply, ChevronDown, Send } from 'lucide-react';
 import { Comment } from '@/lib/community-mock-data';
 import { Avatar } from '../shared/avatar';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { vi } from 'date-fns/locale';
-import { calculateTotalComments } from '@/lib/community-utils';
 
 interface CommentReplyProps {
-  reply: Comment;
-  level?: number;
-  onLike?: (replyId: string) => void;
-  onReply?: (replyId: string) => void;
-  onAddReply?: (parentId: string, content: string) => void;
-  isReplyingTo?: boolean;
-  replyContent?: string;
-  onReplyContentChange?: (content: string) => void;
-  onSubmitReply?: () => void;
-  onCancelReply?: () => void;
+    reply: Comment;
+    level: number;
+    onLike?: (commentId: string) => void;
+    onReply?: (commentId: string) => void;
+    onAddReply?: (parentId: string, content: string) => Promise<void>;
 }
 
 export function CommentReply({
-  reply,
-  level = 1,
-  onLike,
-  onReply,
-  onAddReply,
-  isReplyingTo = false,
-  replyContent = '',
-  onReplyContentChange,
-  onSubmitReply,
-  onCancelReply,
+    reply,
+    level,
+    onLike,
+    onReply,
+    onAddReply,
 }: CommentReplyProps) {
-  const [isLiked, setIsLiked] = useState(reply.isLiked || false);
-  const [likeCount, setLikeCount] = useState(reply.likes);
-  const [showReplies, setShowReplies] = useState(false);
-  const [isReplyingLocally, setIsReplyingLocally] = useState(false);
-  const [localReplyContent, setLocalReplyContent] = useState('');
-  const [replies, setReplies] = useState<Comment[]>(reply.replyList || []);
-  const [replyCount, setReplyCount] = useState(reply.replies || 0);
+    const [isLiked, setIsLiked] = useState(reply.isLiked || false);
+    const [likeCount, setLikeCount] = useState(reply.likes);
+    const [isReplyingTo, setIsReplyingTo] = useState(false);
+    const [replyContent, setReplyContent] = useState('');
+    const [showReplies, setShowReplies] = useState(false);
+    const [replies, setReplies] = useState<Comment[]>(reply.replyList || []);
 
-  const handleLike = () => {
-    setIsLiked(!isLiked);
-    setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
-    onLike?.(reply.id);
-  };
+    // Sync replies with prop changes
+    useEffect(() => {
+        setReplies(reply.replyList || []);
+    }, [reply.replyList]);
 
-  const handleReplySubmit = () => {
-    if (localReplyContent.trim()) {
-      // Create new reply
-      const newReply: Comment = {
-        id: `${reply.id}-reply-${Date.now()}`,
-        author: { id: '1', name: 'Bạn', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=User', role: 'user', followers: 0, following: 0 },
-        content: localReplyContent,
-        timestamp: new Date().toISOString(),
-        likes: 0,
-        replies: 0,
-        isLiked: false,
-        replyList: [],
-      };
+    const handleLike = () => {
+        setIsLiked(!isLiked);
+        setLikeCount(isLiked ? likeCount - 1 : likeCount + 1);
+        onLike?.(reply.id);
+    };
 
-      // Add to replies
-      const updatedReplies = [...replies, newReply];
-      setReplies(updatedReplies);
+    const handleReplySubmit = async () => {
+        if (replyContent.trim() && onAddReply) {
+            await onAddReply(reply.id, replyContent.trim());
+            setReplyContent('');
+            setIsReplyingTo(false);
+            setShowReplies(true);
+        }
+    };
 
-      // Call callback with updated total
-      onAddReply?.(reply.id, localReplyContent);
+    // Limit visual indentation to 4 levels, but allow unlimited logical nesting
+    const maxVisualLevel = 4;
+    const visualLevel = Math.min(level, maxVisualLevel);
 
-      // Reset and show replies
-      setLocalReplyContent('');
-      setIsReplyingLocally(false);
-      setShowReplies(true);
-    }
-  };
-
-  const maxIndentLevel = 3;
-  const currentLevel = Math.min(level, maxIndentLevel);
-  const indentClass = `ml-${currentLevel * 3}`;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -5 }}
-      animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.2 }}
-      className="flex gap-2 group"
-    >
-      <Avatar
-        src={reply.author.avatar}
-        alt={reply.author.name}
-        size="sm"
-        verified={reply.author.verified}
-      />
-
-      <div className="flex-1 min-w-0 space-y-1">
-        {/* Comment Bubble */}
+    return (
         <motion.div
-          whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
-          className="rounded-2xl bg-white/10 px-2 sm:px-3 py-1.5 sm:py-2 border border-cyan-400/20 hover:border-cyan-400/40 transition-all max-w-xs sm:max-w-sm"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className={`flex gap-2 ${visualLevel > 0 ? 'ml-4' : ''}`}
         >
-          <p className="font-semibold text-xs text-slate-50" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
-            {reply.author.name}
-          </p>
-          <p className="text-slate-50 text-xs leading-relaxed mt-0.5" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
-            {reply.content}
-          </p>
-        </motion.div>
-
-        {/* Actions */}
-        <div className="flex gap-2 sm:gap-3 text-xs text-slate-400 px-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-wrap">
-          <span className="text-xs text-slate-500 hidden sm:inline">
-            {formatDistanceToNow(new Date(reply.timestamp), {
-              locale: vi,
-              addSuffix: true,
-            })}
-          </span>
-
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
-            onClick={handleLike}
-            className={`transition-all ${
-              isLiked
-                ? 'text-red-400'
-                : 'hover:text-cyan-400'
-            }`}
-          >
-            <Heart
-              className="w-3 h-3 inline mr-1"
-              fill={isLiked ? 'currentColor' : 'none'}
+            <Avatar
+                src={reply.author.avatar}
+                alt={reply.author.name}
+                size="sm"
+                verified={reply.author.verified}
             />
-            <span className="hidden sm:inline">{likeCount}</span>
-          </motion.button>
 
-          {!isReplyingLocally && (
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setIsReplyingLocally(true)}
-              className="hover:text-cyan-400 transition-all"
-            >
-              <span className="sm:hidden">Trả lời</span>
-              <span className="hidden sm:flex sm:items-center sm:gap-0.5">
-                <Reply className="w-3 h-3" />
-                Trả lời
-              </span>
-            </motion.button>
-          )}
+            <div className="flex-1 min-w-0 space-y-1">
+                {/* Reply Bubble */}
+                <motion.div
+                    whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
+                    className="rounded-2xl bg-white/10 px-3 py-1.5 border border-cyan-400/20 hover:border-cyan-400/40 transition-all"
+                >
+                    <p className="font-semibold text-sm text-slate-100" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                        {reply.author.name}
+                        {reply.author.verified && (
+                            <span className="ml-1 text-cyan-400 text-xs">✓</span>
+                        )}
+                    </p>
+                    <p className="text-slate-200 text-sm leading-relaxed mt-1" style={{ fontFamily: "'Poppins Regular', sans-serif" }}>
+                        {reply.content}
+                    </p>
+                </motion.div>
 
-          {/* Show nested replies */}
-          {replies && replies.length > 0 && !isReplyingLocally && (
-            <motion.button
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => setShowReplies(!showReplies)}
-              className="text-cyan-400 transition-all flex items-center gap-0.5"
-            >
-              <ChevronDown
-                className={`w-3 h-3 transition-transform ${
-                  showReplies ? 'rotate-180' : ''
-                }`}
-              />
-              <span>{calculateTotalComments(replies)}</span>
-            </motion.button>
-          )}
-        </div>
+                {/* Actions */}
+                <div className="flex gap-3 text-xs text-slate-400 px-2">
+                    <span className="text-xs text-slate-500">
+                        {formatDistanceToNow(new Date(reply.timestamp), {
+                            locale: vi,
+                            addSuffix: true,
+                        })}
+                    </span>
 
-        {/* Reply Input */}
-        <AnimatePresence>
-          {isReplyingLocally && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="flex gap-1 sm:gap-2 items-start flex-wrap sm:flex-nowrap"
-            >
-              <input
-                type="text"
-                value={localReplyContent}
-                onChange={(e) => setLocalReplyContent(e.target.value)}
-                placeholder="Trả lời..."
-                className="flex-1 min-w-0 px-2 sm:px-3 py-1.5 sm:py-2 rounded-full bg-white/10 border border-cyan-400/20 text-slate-100 placeholder-slate-500 outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 text-xs transition-all"
-                style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-              />
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={handleReplySubmit}
-                disabled={!localReplyContent.trim()}
-                className="px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-full bg-linear-to-r from-cyan-400 to-blue-500 hover:from-cyan-300 hover:to-blue-400 text-white text-xs font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-all shrink-0"
-                style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-              >
-                <Send className="w-2.5 h-2.5" />
-              </motion.button>
-              <motion.button
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  setIsReplyingLocally(false);
-                  setLocalReplyContent('');
-                }}
-                className="px-2 sm:px-2.5 py-1.5 sm:py-2 rounded-full hover:bg-slate-700 text-slate-400 text-xs transition-all shrink-0"
-                style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
-              >
-                Hủy
-              </motion.button>
-            </motion.div>
-          )}
-        </AnimatePresence>
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={handleLike}
+                        className={`transition-all ${isLiked ? 'text-red-400' : 'hover:text-cyan-400'}`}
+                    >
+                        <Heart
+                            className="w-3.5 h-3.5 inline mr-1"
+                            fill={isLiked ? 'currentColor' : 'none'}
+                        />
+                        <span>{likeCount}</span>
+                    </motion.button>
 
-        {/* Nested Replies */}
-        <AnimatePresence>
-          {showReplies && replies && replies.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mt-2 space-y-1 ml-2"
-            >
-              {replies.map((nestedReply) => (
-                <CommentReply
-                  key={nestedReply.id}
-                  reply={nestedReply}
-                  level={level + 1}
-                  onLike={onLike}
-                  onReply={onReply}
-                  onAddReply={onAddReply}
-                />
-              ))}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
+                    <motion.button
+                        whileHover={{ scale: 1.1 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => setIsReplyingTo(!isReplyingTo)}
+                        className="hover:text-cyan-400 transition-all"
+                    >
+                        <Reply className="w-3.5 h-3.5 inline mr-1" />
+                        Trả lời
+                    </motion.button>
+
+                    {replies.length > 0 && (
+                        <motion.button
+                            whileHover={{ scale: 1.1 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setShowReplies(!showReplies)}
+                            className="text-cyan-400 transition-all flex items-center gap-1"
+                        >
+                            <ChevronDown
+                                className={`w-3.5 h-3.5 transition-transform ${showReplies ? 'rotate-180' : ''}`}
+                            />
+                            <span>{replies.length}</span>
+                        </motion.button>
+                    )}
+                </div>
+
+                {/* Reply Input */}
+                <AnimatePresence>
+                    {isReplyingTo && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="flex gap-2 items-start mt-2"
+                        >
+                            <input
+                                type="text"
+                                value={replyContent}
+                                onChange={(e) => setReplyContent(e.target.value)}
+                                placeholder="Trả lời..."
+                                autoFocus
+                                className="flex-1 px-3 py-1.5 rounded-full bg-white/10 border border-cyan-400/20 text-slate-100 placeholder-slate-500 outline-none focus:ring-2 focus:ring-cyan-400/50 focus:border-cyan-400 text-xs transition-all"
+                                style={{ fontFamily: "'Poppins Regular', sans-serif" }}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && !e.shiftKey) {
+                                        e.preventDefault();
+                                        handleReplySubmit();
+                                    }
+                                }}
+                            />
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={handleReplySubmit}
+                                disabled={!replyContent.trim()}
+                                className="px-3 py-1.5 rounded-full bg-linear-to-r from-cyan-400 to-blue-500 text-white text-xs font-semibold disabled:opacity-50 transition-all"
+                            >
+                                <Send className="w-3 h-3" />
+                            </motion.button>
+                            <motion.button
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                onClick={() => {
+                                    setIsReplyingTo(false);
+                                    setReplyContent('');
+                                }}
+                                className="px-3 py-1.5 rounded-full hover:bg-slate-700 text-slate-400 text-xs transition-all"
+                            >
+                                Hủy
+                            </motion.button>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                {/* Nested Replies (Recursive) */}
+                <AnimatePresence>
+                    {showReplies && replies.length > 0 && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="mt-2 space-y-2"
+                        >
+                            {replies.map((nestedReply) => (
+                                <CommentReply
+                                    key={nestedReply.id}
+                                    reply={nestedReply}
+                                    level={level + 1}
+                                    onLike={onLike}
+                                    onReply={onReply}
+                                    onAddReply={onAddReply}
+                                />
+                            ))}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+            </div>
+        </motion.div>
+    );
 }

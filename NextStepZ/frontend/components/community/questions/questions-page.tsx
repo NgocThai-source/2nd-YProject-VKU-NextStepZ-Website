@@ -17,6 +17,9 @@ interface QuestionsPageProps {
   onVote?: (questionId: string, direction: 'up' | 'down') => void;
   onAnswerClick?: (questionId: string) => void;
   onReport?: (questionId: string) => void;
+  onLikeUpdate?: (questionId: string, likesCount: number, isLiked: boolean) => void;
+  onViewUpdate?: (questionId: string, viewCount: number) => void;
+  onUserClick?: (userId: string) => void;
 }
 
 export function QuestionsPage({
@@ -25,6 +28,9 @@ export function QuestionsPage({
   onVote,
   onAnswerClick,
   onReport,
+  onLikeUpdate,
+  onViewUpdate,
+  onUserClick,
 }: QuestionsPageProps) {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -78,6 +84,9 @@ export function QuestionsPage({
               ((questionId) => console.log(`View answers for question ${questionId}`))
             }
             onReport={handleOpenReportModal}
+            onLikeUpdate={onLikeUpdate}
+            onViewUpdate={onViewUpdate}
+            onUserClick={onUserClick}
           />
         </div>
 
@@ -86,9 +95,9 @@ export function QuestionsPage({
           animate={{ opacity: 1, x: 0 }}
           className="space-y-4 hidden lg:block"
         >
-          <QAStatsCard questions={questions} />
+          <QAStatsCard />
           <TopQuestionsCard questions={questions} />
-          <ExpertContributorsCard />
+          <ExpertContributorsCard onUserClick={onUserClick} />
         </motion.div>
       </motion.div>
 

@@ -85,12 +85,13 @@ export default function SharedPostPage() {
         likes: apiPost.likesCount,
         comments: apiPost.commentsCount,
         shares: apiPost.shareCount,
-        isLiked: false,
+        isLiked: apiPost.isLiked || false,
         isSaved: false,
       };
 
       setPost(transformed);
       setLikeCount(apiPost.likesCount);
+      setIsLiked(apiPost.isLiked || false);
     } catch (err) {
       console.error('Error loading post:', err);
       setError('Bài viết này có thể đã bị xóa hoặc không tồn tại.');

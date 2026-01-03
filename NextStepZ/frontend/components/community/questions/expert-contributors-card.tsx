@@ -1,16 +1,49 @@
 'use client';
 
-interface ExpertContributorsCardProps {
-  experts?: Array<{ name: string; answers: number; badge: string }>;
+import { useState, useEffect } from 'react';
+import { Avatar } from '../shared/avatar';
+import * as communityApi from '@/lib/community-api';
+import { Loader2 } from 'lucide-react';
+
+interface Expert {
+  id: string;
+  name: string;
+  avatar: string | null;
+  questionCount: number;
 }
 
-export function ExpertContributorsCard({
-  experts = [
-    { name: 'Trần Thị B', answers: 45, badge: '🏆' },
-    { name: 'Lý Quốc D', answers: 38, badge: '🥈' },
-    { name: 'Phạm Minh C', answers: 32, badge: '🥉' },
-  ],
-}: ExpertContributorsCardProps) {
+interface ExpertContributorsCardProps {
+  onUserClick?: (userId: string) => void;
+}
+
+export function ExpertContributorsCard({ onUserClick }: ExpertContributorsCardProps) {
+  const [experts, setExperts] = useState<Expert[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchExperts = async () => {
+      try {
+        const data = await communityApi.getTopExperts();
+        setExperts(data.map(e => ({
+          id: e.id,
+          name: e.name,
+          avatar: e.avatar,
+          questionCount: e.questionCount,
+        })));
+      } catch (err) {
+        console.error('Error fetching top experts:', err);
+        // Fallback to empty on error
+        setExperts([]);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchExperts();
+  }, []);
+
+  const badges = ['🏆', '🥈', '🥉'];
+
   return (
     <div className="rounded-xl bg-white/5 border border-cyan-400/20 backdrop-blur-sm p-6">
       <h3
@@ -19,24 +52,39 @@ export function ExpertContributorsCard({
       >
         ⭐ Chuyên Gia Hàng Đầu
       </h3>
-      <div className="space-y-3">
-        {experts.map((expert, idx) => (
-          <div
-            key={idx}
-            className="p-3 bg-white/5 border border-cyan-400/10 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{expert.badge}</span>
-                <div>
-                  <p className="text-sm font-medium text-white">{expert.name}</p>
-                  <p className="text-xs text-gray-500">{expert.answers} câu trả lời</p>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-4">
+          <Loader2 className="w-6 h-6 text-cyan-400 animate-spin" />
+        </div>
+      ) : experts.length === 0 ? (
+        <p className="text-sm text-gray-500 text-center py-4">Chưa có dữ liệu</p>
+      ) : (
+        <div className="space-y-3">
+          {experts.map((expert, idx) => (
+            <div
+              key={expert.id}
+              onClick={() => onUserClick?.(expert.id)}
+              className="p-3 bg-white/5 border border-cyan-400/10 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-lg">{badges[idx] || '⭐'}</span>
+                  <Avatar
+                    src={expert.avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${expert.id}`}
+                    alt={expert.name}
+                    size="sm"
+                  />
+                  <div>
+                    <p className="text-sm font-medium text-white hover:text-cyan-300 transition-colors">{expert.name}</p>
+                    <p className="text-xs text-gray-500">{expert.questionCount} câu hỏi</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

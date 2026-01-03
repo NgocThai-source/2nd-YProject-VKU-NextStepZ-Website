@@ -34,6 +34,7 @@ interface PostCardProps {
   onDelete?: (postId: string) => void;
   onUserClick?: (userId: string) => void;
   onReport?: (postId: string) => void;
+  onStatsChange?: () => void;
 }
 
 const categoryLabels: Record<string, string> = {
@@ -56,11 +57,13 @@ export function PostCard({
   onDelete,
   onUserClick,
   onReport,
+  onStatsChange,
 }: PostCardProps) {
   const { toggleSavePost, isSavedPost } = useSavePost();
   const [isLiked, setIsLiked] = useState(post.isLiked || false);
   const [isSaved, setIsSaved] = useState(false);
   const [likeCount, setLikeCount] = useState(post.likes);
+  const [shareCount, setShareCount] = useState(post.shares);
   const [showMoreMenu, setShowMoreMenu] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -110,14 +113,6 @@ export function PostCard({
                 >
                   {post.author.name}
                 </h3>
-                {post.author.title && (
-                  <span
-                    className="text-sm text-gray-400 truncate"
-                    style={{ fontFamily: "'Poppins Regular', sans-serif" }}
-                  >
-                    {post.author.title}
-                  </span>
-                )}
               </div>
               <p
                 className="text-sm text-gray-500"
@@ -349,6 +344,8 @@ export function PostCard({
             onCommentCountChange={(count) => {
               // Update comment count display if needed
             }}
+            onUserClick={onUserClick}
+            onStatsChange={onStatsChange}
           />
         </motion.div>
       )}
@@ -358,6 +355,7 @@ export function PostCard({
         isOpen={showShareModal}
         post={post}
         onClose={() => setShowShareModal(false)}
+        onShareCountUpdate={(newCount) => setShareCount(newCount)}
       />
     </motion.div>
   );

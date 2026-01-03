@@ -2,25 +2,43 @@
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Copy, Facebook, MessageCircle, Mail, Link as LinkIcon, Check } from 'lucide-react';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Post } from '@/lib/community-mock-data';
+import * as communityApi from '@/lib/community-api';
 
 interface ShareModalProps {
   isOpen: boolean;
   post: Post;
   onClose: () => void;
+  onShareCountUpdate?: (newCount: number) => void;
 }
 
-export function ShareModal({ isOpen, post, onClose }: ShareModalProps) {
+export function ShareModal({ isOpen, post, onClose, onShareCountUpdate }: ShareModalProps) {
   const [copied, setCopied] = useState(false);
-  const postUrl = typeof window !== 'undefined' 
+  const [mounted, setMounted] = useState(false);
+
+  // Ensure we're client-side before creating portal
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const postUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/shared-post/${post.id}`
     : `/shared-post/${post.id}`;
 
-  const handleCopyLink = () => {
+  const handleCopyLink = async () => {
     navigator.clipboard.writeText(postUrl);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+
+    // Increment share count in backend
+    try {
+      const result = await communityApi.incrementShareCount(post.id);
+      onShareCountUpdate?.(result.shareCount);
+    } catch (err) {
+      console.error('Error incrementing share count:', err);
+    }
   };
 
   const shareToFacebook = () => {
@@ -74,7 +92,7 @@ export function ShareModal({ isOpen, post, onClose }: ShareModalProps) {
     },
   ];
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <>
@@ -84,7 +102,7 @@ export function ShareModal({ isOpen, post, onClose }: ShareModalProps) {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[9998]"
           />
 
           {/* Modal */}
@@ -92,7 +110,7 @@ export function ShareModal({ isOpen, post, onClose }: ShareModalProps) {
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           >
             <div className="bg-slate-800 border border-cyan-400/20 rounded-2xl max-w-md w-full backdrop-blur-sm overflow-hidden">
               {/* Header */}
@@ -181,4 +199,11 @@ export function ShareModal({ isOpen, post, onClose }: ShareModalProps) {
       )}
     </AnimatePresence>
   );
+
+  // Use portal to render modal at document body level (outside any clipping containers)
+  if (!mounted) {
+    return null;
+  }
+
+  return createPortal(modalContent, document.body);
 }

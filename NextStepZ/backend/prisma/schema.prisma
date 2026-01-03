@@ -51,6 +51,7 @@ model User {
   likes     Like[]
   commentLikes CommentLike[]
   messages  Message[]
+  questionViews QuestionView[]
   following Follow[]  @relation("UserFollowing")
   followers Follow[]  @relation("UserFollowers")
   
@@ -312,7 +313,7 @@ model SavedPortfolio {
   @@map("saved_portfolios")
 }
 
-// Post Model (for Community) - Enhanced with topics, hashtags, images
+// Post Model (for Community) - Enhanced with topics, hashtags, images, and questions
 model Post {
   id          String   @id @default(cuid())
   userId      String
@@ -324,8 +325,16 @@ model Post {
   hashtags    String[] @default([])          // Hashtags like #React, #TypeScript
   images      String[] @default([])          // Image URLs
   
+  // Question-specific fields (only used when category = 'question')
+  title             String?                   // Question title
+  tags              String[] @default([])     // Question tags
+  viewCount         Int      @default(0)      // View count for questions
+  isAnswered        Boolean  @default(false)  // Has accepted answer
+  acceptedCommentId String?                   // ID of the accepted answer comment
+  
   comments    Comment[]
   likes       Like[]
+  questionViews QuestionView[]
   
   shareCount  Int      @default(0)
   
@@ -383,6 +392,20 @@ model Like {
 
   @@unique([postId, userId])
   @@map("likes")
+}
+
+// QuestionView Model - Track unique views per user per question
+model QuestionView {
+  id        String   @id @default(cuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId])
+  @@map("question_views")
 }
 
 // Message Model (for Messaging)

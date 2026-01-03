@@ -14,6 +14,8 @@ interface CommentReplyProps {
     onLike?: (commentId: string) => void;
     onReply?: (commentId: string) => void;
     onAddReply?: (parentId: string, content: string) => Promise<void>;
+    onUserClick?: (userId: string) => void;
+    expandedParentIds?: Set<string>;
 }
 
 export function CommentReply({
@@ -22,12 +24,15 @@ export function CommentReply({
     onLike,
     onReply,
     onAddReply,
+    onUserClick,
+    expandedParentIds,
 }: CommentReplyProps) {
     const [isLiked, setIsLiked] = useState(reply.isLiked || false);
     const [likeCount, setLikeCount] = useState(reply.likes);
     const [isReplyingTo, setIsReplyingTo] = useState(false);
     const [replyContent, setReplyContent] = useState('');
-    const [showReplies, setShowReplies] = useState(false);
+    // Expand if this reply is in the expandedParentIds set (for newly replied comments)
+    const [showReplies, setShowReplies] = useState(expandedParentIds?.has(reply.id) || false);
     const [replies, setReplies] = useState<Comment[]>(reply.replyList || []);
 
     // Sync replies with prop changes
@@ -65,6 +70,7 @@ export function CommentReply({
                 alt={reply.author.name}
                 size="sm"
                 verified={reply.author.verified}
+                onClick={() => onUserClick?.(reply.author.id)}
             />
 
             <div className="flex-1 min-w-0 space-y-1">
@@ -73,7 +79,11 @@ export function CommentReply({
                     whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
                     className="rounded-2xl bg-white/10 px-3 py-1.5 border border-cyan-400/20 hover:border-cyan-400/40 transition-all"
                 >
-                    <p className="font-semibold text-sm text-slate-100" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+                    <p
+                        className="font-semibold text-sm text-slate-100 cursor-pointer hover:text-cyan-300 transition-colors inline-block"
+                        style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+                        onClick={() => onUserClick?.(reply.author.id)}
+                    >
                         {reply.author.name}
                         {reply.author.verified && (
                             <span className="ml-1 text-cyan-400 text-xs">✓</span>
@@ -196,6 +206,8 @@ export function CommentReply({
                                     onLike={onLike}
                                     onReply={onReply}
                                     onAddReply={onAddReply}
+                                    onUserClick={onUserClick}
+                                    expandedParentIds={expandedParentIds}
                                 />
                             ))}
                         </motion.div>

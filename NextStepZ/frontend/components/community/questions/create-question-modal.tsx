@@ -1,10 +1,12 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, AlertCircle, Send } from 'lucide-react';
+import { X, AlertCircle, Send, Loader2 } from 'lucide-react';
 import { useState, useRef } from 'react';
 import { Question, mockUsers, mockQuestions } from '@/lib/community-mock-data';
 import { Avatar } from '../shared/avatar';
+import * as communityApi from '@/lib/community-api';
+import { useProfile } from '@/lib/profile-context';
 
 interface CreateQuestionModalProps {
   isOpen: boolean;
@@ -31,8 +33,10 @@ export function CreateQuestionModal({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
   const [errors, setErrors] = useState<string[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const postIdCounterRef = useRef(0);
   const availableTags = getAllQuestionTags();
+  const { userProfile } = useProfile();
 
   const handleTagToggle = (tag: string) => {
     setSelectedTags((prev) =>
@@ -54,7 +58,7 @@ export function CreateQuestionModal({
     setSelectedTags(selectedTags.filter((t) => t !== tag));
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const newErrors: string[] = [];
 
     if (!title.trim()) {
@@ -86,22 +90,37 @@ export function CreateQuestionModal({
       return;
     }
 
-    // Create question as Question object
-    const newQuestion: Question = {
-      id: `question-${postIdCounterRef.current++}`,
-      author: mockUsers[0],
-      title: title.trim(),
-      content: description.trim(),
-      tags: selectedTags,
-      timestamp: new Date().toISOString(),
-      views: 0,
-      votes: 0,
-      answers: 0,
-      isAnswered: false,
-    };
+    setIsSubmitting(true);
+    try {
+      // Call API to create question
+      await communityApi.createQuestion({
+        title: title.trim(),
+        content: description.trim(),
+        tags: selectedTags,
+      });
 
-    onSubmit?.(newQuestion);
-    handleClose();
+      // Create mock Question for callback (parent will refresh from API)
+      const newQuestion: Question = {
+        id: `question-${postIdCounterRef.current++}`,
+        author: mockUsers[0],
+        title: title.trim(),
+        content: description.trim(),
+        tags: selectedTags,
+        timestamp: new Date().toISOString(),
+        views: 0,
+        votes: 0,
+        answers: 0,
+        isAnswered: false,
+      };
+
+      onSubmit?.(newQuestion);
+      handleClose();
+    } catch (err) {
+      console.error('Error creating question:', err);
+      setErrors(['Không thể tạo câu hỏi. Vui lòng thử lại.']);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -109,10 +128,17 @@ export function CreateQuestionModal({
     setDescription('');
     setSelectedTags([]);
     setErrors([]);
+    setIsSubmitting(false);
     onClose();
   };
 
-  const currentUser = mockUsers[0];
+  // Use profile data if available, fallback to mock
+  const currentUser = userProfile ? {
+    name: userProfile.name || mockUsers[0].name,
+    avatar: userProfile.avatar || mockUsers[0].avatar,
+    title: userProfile.bio || mockUsers[0].title,
+    verified: true,
+  } : mockUsers[0];
 
   return (
     <AnimatePresence>
@@ -224,7 +250,7 @@ export function CreateQuestionModal({
                   <label className="block text-sm font-semibold text-white mb-3" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
                     Thêm Tags (Chọn 1-10)
                   </label>
-                  
+
                   {/* Suggested Tags */}
                   <div className="mb-3">
                     <p className="text-xs text-gray-400 mb-2">Gợi ý:</p>
@@ -235,11 +261,10 @@ export function CreateQuestionModal({
                           whileHover={{ scale: 1.02 }}
                           whileTap={{ scale: 0.98 }}
                           onClick={() => handleTagToggle(tag)}
-                          className={`px-3 py-2 rounded-lg text-sm transition-all font-medium ${
-                            selectedTags.includes(tag)
-                              ? 'bg-linear-to-r from-cyan-500 to-blue-600 text-white border border-cyan-400'
-                              : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
-                          }`}
+                          className={`px-3 py-2 rounded-lg text-sm transition-all font-medium ${selectedTags.includes(tag)
+                            ? 'bg-linear-to-r from-cyan-500 to-blue-600 text-white border border-cyan-400'
+                            : 'bg-white/5 text-gray-300 border border-white/10 hover:bg-white/10'
+                            }`}
                           style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                         >
                           {tag}
@@ -307,11 +332,15 @@ export function CreateQuestionModal({
                     whileHover={{ scale: 1.05 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={handleSubmit}
-                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition-all"
+                    disabled={isSubmitting}
+                    className="flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg bg-linear-to-r from-cyan-500 to-blue-600 text-white font-semibold hover:shadow-lg hover:shadow-cyan-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                     style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
                   >
-                    <Send className="w-5 h-5" />
-                    Đặt Câu Hỏi
+                    {isSubmitting ? (
+                      <><Loader2 className="w-5 h-5 animate-spin" /> Đang gửi...</>
+                    ) : (
+                      <><Send className="w-5 h-5" /> Đặt Câu Hỏi</>
+                    )}
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.05 }}

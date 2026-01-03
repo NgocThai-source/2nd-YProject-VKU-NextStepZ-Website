@@ -31,7 +31,7 @@ export function TopQuestionsCard({ questions }: TopQuestionsCardProps) {
                     {question.title}
                   </p>
                   <p className="text-xs text-gray-500 mt-1">
-                    👍 {question.votes} votes
+                    👍 {question.votes} likes
                   </p>
                 </div>
               </div>

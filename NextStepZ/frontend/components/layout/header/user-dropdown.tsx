@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   User,
   Briefcase,
@@ -12,6 +13,7 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth-context';
+import { useProfile } from '@/lib/profile-context';
 
 interface UserDropdownProps {
   scrolled: boolean;
@@ -21,7 +23,11 @@ export function UserDropdown({ scrolled }: UserDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { user, logout } = useAuth();
+  const { userProfile } = useProfile();
   const router = useRouter();
+
+  // Get avatar from ProfileContext (real-time sync) or fallback
+  const avatarUrl = userProfile?.avatar;
 
   const MENU_ITEMS = [
     {
@@ -94,18 +100,28 @@ export function UserDropdown({ scrolled }: UserDropdownProps) {
       {/* Avatar Button */}
       <motion.button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all duration-200 flex items-center justify-center text-white font-semibold text-sm ${
-          scrolled
-            ? 'border-cyan-400/40 hover:border-cyan-400/60 bg-linear-to-br from-cyan-500 to-blue-600'
-            : 'border-cyan-400/30 hover:border-cyan-400/50 bg-linear-to-br from-cyan-500 to-blue-600'
-        }`}
+        className={`w-10 h-10 rounded-full overflow-hidden border-2 transition-all duration-200 flex items-center justify-center text-white font-semibold text-sm ${scrolled
+          ? 'border-cyan-400/40 hover:border-cyan-400/60 bg-linear-to-br from-cyan-500 to-blue-600'
+          : 'border-cyan-400/30 hover:border-cyan-400/50 bg-linear-to-br from-cyan-500 to-blue-600'
+          }`}
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         aria-label="User menu"
       >
-        <span className="w-full h-full flex items-center justify-center bg-linear-to-br from-cyan-400 to-blue-500">
-          {user?.username.charAt(0).toUpperCase() || 'A'}
-        </span>
+        {avatarUrl ? (
+          <Image
+            src={avatarUrl}
+            alt={user?.username || 'User'}
+            width={40}
+            height={40}
+            className="w-full h-full object-cover"
+            unoptimized={avatarUrl.includes('dicebear.com')}
+          />
+        ) : (
+          <span className="w-full h-full flex items-center justify-center bg-linear-to-br from-cyan-400 to-blue-500">
+            {user?.username.charAt(0).toUpperCase() || 'A'}
+          </span>
+        )}
       </motion.button>
 
       {/* Dropdown Menu */}

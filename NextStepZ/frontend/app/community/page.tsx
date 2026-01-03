@@ -20,16 +20,18 @@ import { FeedFilter, type FilterType } from '@/components/community/feed';
 import { mockQuestions, mockUsers, Post, Question, LeaderboardUser } from '@/lib/community-mock-data';
 import { QuestionsPage } from '@/components/community/questions';
 import * as communityApi from '@/lib/community-api';
+import type { QuestionData } from '@/lib/community-api';
 
 type SectionType = 'feed' | 'leaderboard' | 'questions';
 
 export default function CommunityPage() {
   const [activeSection, setActiveSection] = useState<SectionType>('feed');
   const [isCreatePostOpen, setIsCreatePostOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState(mockUsers[0]);
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
   const [isUserProfileOpen, setIsUserProfileOpen] = useState(false);
   const [newPost, setNewPost] = useState<Post | null>(null);
-  const [questions, setQuestions] = useState<Question[]>(mockQuestions);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [isQuestionsLoading, setIsQuestionsLoading] = useState(false);
   const [leaderboardData, setLeaderboardData] = useState<LeaderboardUser[]>([]);
   const [isLeaderboardLoading, setIsLeaderboardLoading] = useState(false);
 
@@ -71,6 +73,50 @@ export default function CommunityPage() {
       loadLeaderboard();
     }
   }, [activeSection, loadLeaderboard]);
+
+  // Fetch questions from API
+  const loadQuestions = useCallback(async () => {
+    try {
+      setIsQuestionsLoading(true);
+      const data = await communityApi.getQuestions();
+      // Transform API data to match Question interface
+      const transformed: Question[] = data.map((q: QuestionData) => ({
+        id: q.id,
+        title: q.title || '',
+        content: q.content,
+        tags: q.tags,
+        timestamp: q.createdAt,
+        views: q.viewCount,
+        votes: q.likesCount,
+        answers: q.commentsCount,
+        isAnswered: q.isAnswered,
+        isUpvoted: q.isLiked,
+        author: {
+          id: q.user.id,
+          name: `${q.user.firstName || ''} ${q.user.lastName || ''}`.trim() || q.user.username,
+          avatar: q.user.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=default',
+          role: q.user.role as 'user' | 'employer',
+          followers: 0,
+          following: 0,
+        },
+        comments: [],
+      }));
+      setQuestions(transformed);
+    } catch (err) {
+      console.error('Error loading questions:', err);
+      // Fallback to mock data on error
+      setQuestions(mockQuestions);
+    } finally {
+      setIsQuestionsLoading(false);
+    }
+  }, []);
+
+  // Load questions when switching to questions tab
+  useEffect(() => {
+    if (activeSection === 'questions') {
+      loadQuestions();
+    }
+  }, [activeSection, loadQuestions]);
 
   // Feed filter state
   const [feedFilter, setFeedFilter] = useState<FilterType>('all');
@@ -235,12 +281,10 @@ export default function CommunityPage() {
                     // Handle post interactions
                   }}
                   onUserClick={(userId) => {
-                    const user = mockUsers.find((u) => u.id === userId);
-                    if (user) {
-                      setSelectedUser(user);
-                      setIsUserProfileOpen(true);
-                    }
+                    setSelectedUserId(userId);
+                    setIsUserProfileOpen(true);
                   }}
+                  onStatsChange={loadLeaderboard}
                   filter={feedFilter}
                   selectedHashtags={selectedHashtags}
                   selectedTopics={selectedTopics}
@@ -259,6 +303,11 @@ export default function CommunityPage() {
                 <Recommendations
                   onFollow={(userId) => console.log('Follow user:', userId)}
                   onDismiss={(userId) => console.log('Dismiss user:', userId)}
+                  onUserClick={(userId) => {
+                    setSelectedUserId(userId);
+                    setIsUserProfileOpen(true);
+                  }}
+                  onStatsChange={loadLeaderboard}
                 />
 
                 {/* Leaderboard */}
@@ -272,15 +321,23 @@ export default function CommunityPage() {
                         key={leaderboardUser.user.id}
                         whileHover={{ x: 4 }}
                         onClick={() => {
-                          setSelectedUser(leaderboardUser.user);
+                          setSelectedUserId(leaderboardUser.user.id);
                           setIsUserProfileOpen(true);
                         }}
                         className="w-full flex items-center justify-between p-3 rounded-lg bg-white/5 hover:bg-white/10 transition-colors text-left"
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-sm font-bold text-cyan-300">{leaderboardUser.rank}</span>
-                          <div className="w-8 h-8 rounded-full bg-linear-to-br from-cyan-400/30 to-blue-500/30 flex items-center justify-center shrink-0">
-                            <span className="text-xs font-bold text-cyan-300">{leaderboardUser.user.name.charAt(0)}</span>
+                          <div className="w-8 h-8 rounded-full overflow-hidden bg-linear-to-br from-cyan-400/30 to-blue-500/30 flex items-center justify-center shrink-0">
+                            {leaderboardUser.user.avatar ? (
+                              <img
+                                src={leaderboardUser.user.avatar}
+                                alt={leaderboardUser.user.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-xs font-bold text-cyan-300">{leaderboardUser.user.name.charAt(0)}</span>
+                            )}
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-semibold text-white truncate" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
@@ -301,12 +358,33 @@ export default function CommunityPage() {
           {activeSection === 'questions' && (
             <QuestionsPage
               questions={questions}
-              onCreateQuestion={(newQuestion) => {
-                setQuestions([newQuestion, ...questions]);
+              onCreateQuestion={() => {
+                // Refresh questions from API after creating a new one
+                loadQuestions();
               }}
               onVote={(questionId, direction) => console.log(`Vote ${direction} on question ${questionId}`)}
               onAnswerClick={(questionId) => console.log(`View answers for question ${questionId}`)}
               onReport={(questionId) => console.log(`Open report modal for question ${questionId}`)}
+              onLikeUpdate={(questionId, likesCount, isLiked) => {
+                // Update local question state for real-time UI update
+                setQuestions(prev => prev.map(q =>
+                  q.id === questionId
+                    ? { ...q, votes: likesCount, isUpvoted: isLiked }
+                    : q
+                ));
+              }}
+              onViewUpdate={(questionId, viewCount) => {
+                // Update local question state with new view count
+                setQuestions(prev => prev.map(q =>
+                  q.id === questionId
+                    ? { ...q, views: viewCount }
+                    : q
+                ));
+              }}
+              onUserClick={(userId) => {
+                setSelectedUserId(userId);
+                setIsUserProfileOpen(true);
+              }}
             />
           )}
 
@@ -324,11 +402,8 @@ export default function CommunityPage() {
                 <LeaderboardExpanded
                   users={leaderboardData}
                   onUserClick={(userId) => {
-                    const user = leaderboardData.find((u) => u.user.id === userId)?.user || mockUsers.find((u) => u.id === userId);
-                    if (user) {
-                      setSelectedUser(user);
-                      setIsUserProfileOpen(true);
-                    }
+                    setSelectedUserId(userId);
+                    setIsUserProfileOpen(true);
                   }}
                 />
               </div>
@@ -404,12 +479,9 @@ export default function CommunityPage() {
       />
 
       <UserProfileModal
-        user={selectedUser}
+        userId={selectedUserId}
         isOpen={isUserProfileOpen}
         onClose={() => setIsUserProfileOpen(false)}
-        onFollow={(userId) => {
-          console.log('Follow user:', userId);
-        }}
         onMessage={(userId) => console.log(`Message user ${userId}`)}
       />
 
@@ -420,21 +492,6 @@ export default function CommunityPage() {
         onSearch={(filters) => {
           console.log('Advanced search with filters:', filters);
           setIsAdvancedSearchOpen(false);
-        }}
-      />
-
-      {/* User Management Dialog - Block/Mute */}
-      <UserManagementDialog
-        user={selectedUser}
-        isOpen={isUserManagementOpen}
-        onClose={() => setIsUserManagementOpen(false)}
-        onBlock={(userId) => {
-          setBlockedUsers(prev => new Set([...prev, userId]));
-          console.log('Blocked user:', userId);
-        }}
-        onMute={(userId) => {
-          setMutedUsers(prev => new Set([...prev, userId]));
-          console.log('Muted user:', userId);
         }}
       />
 

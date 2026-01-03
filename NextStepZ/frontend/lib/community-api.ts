@@ -169,8 +169,14 @@ export async function incrementShareCount(postId: string): Promise<{ shareCount:
 }
 
 export async function getSharedPost(postId: string): Promise<Post> {
+    const token = getAuthToken();
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
     return fetch(`${API_URL}/community/shared/${postId}`, {
-        headers: { 'Content-Type': 'application/json' },
+        headers,
     }).then(res => {
         if (!res.ok) throw new Error('Post not found');
         return res.json();
@@ -213,6 +219,138 @@ export interface LeaderboardEntry {
 
 export async function getLeaderboard(limit = 30): Promise<LeaderboardEntry[]> {
     return fetch(`${API_URL}/community/leaderboard?limit=${limit}`, {
+        headers: { 'Content-Type': 'application/json' },
+    }).then(res => res.json());
+}
+
+// ==================== USER PROFILE MODAL ====================
+
+export interface UserProfileModalData {
+    user: {
+        id: string;
+        name: string;
+        avatar: string | null;
+        role: string;
+        title?: string;
+        verified: boolean;
+    };
+    stats: {
+        followers: number;
+        following: number; // This is posts count as per requirement
+        postsCount: number;
+        commentsCount: number;
+        likesReceived: number;
+        score: number;
+    };
+    shareToken: string | null;
+    isFollowing: boolean;
+    isSelf: boolean;
+}
+
+export async function getUserProfileModal(userId: string): Promise<UserProfileModalData> {
+    return fetchWithAuth(`/community/users/${userId}/profile-modal`);
+}
+
+// ==================== QUESTIONS ====================
+
+export interface QuestionUser {
+    id: string;
+    username: string;
+    firstName: string | null;
+    lastName: string | null;
+    avatar: string | null;
+    role: string;
+    companyName: string | null;
+}
+
+export interface QuestionData {
+    id: string;
+    title: string | null;
+    content: string;
+    tags: string[];
+    viewCount: number;
+    isAnswered: boolean;
+    acceptedCommentId?: string | null;
+    likesCount: number;
+    commentsCount: number;
+    isLiked: boolean;
+    createdAt: string;
+    user: QuestionUser;
+}
+
+export interface TopExpert {
+    id: string;
+    name: string;
+    avatar: string | null;
+    role: string;
+    title?: string;
+    questionCount: number;
+}
+
+export async function createQuestion(dto: { title: string; content: string; tags: string[] }): Promise<QuestionData> {
+    return fetchWithAuth('/community/questions', {
+        method: 'POST',
+        body: JSON.stringify(dto),
+    });
+}
+
+export async function getQuestions(page: number = 1, limit: number = 20): Promise<QuestionData[]> {
+    const token = getAuthToken();
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return fetch(`${API_URL}/community/questions?page=${page}&limit=${limit}`, {
+        headers,
+    }).then(res => res.json());
+}
+
+export async function getQuestion(questionId: string): Promise<QuestionData> {
+    const token = getAuthToken();
+    const headers: HeadersInit = { 'Content-Type': 'application/json' };
+    if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+
+    return fetch(`${API_URL}/community/questions/${questionId}`, {
+        headers,
+    }).then(res => res.json());
+}
+
+export async function toggleQuestionLike(questionId: string): Promise<{ isLiked: boolean; likesCount: number }> {
+    return fetchWithAuth(`/community/questions/${questionId}/like`, {
+        method: 'POST',
+    });
+}
+
+export async function recordQuestionView(questionId: string): Promise<{ viewCount: number }> {
+    return fetchWithAuth(`/community/questions/${questionId}/view`, {
+        method: 'POST',
+    });
+}
+
+export async function getFeaturedQuestions(limit: number = 3): Promise<QuestionData[]> {
+    return fetch(`${API_URL}/community/questions/featured?limit=${limit}`, {
+        headers: { 'Content-Type': 'application/json' },
+    }).then(res => res.json());
+}
+
+export async function getTopExperts(limit: number = 3): Promise<TopExpert[]> {
+    return fetch(`${API_URL}/community/questions/top-experts?limit=${limit}`, {
+        headers: { 'Content-Type': 'application/json' },
+    }).then(res => res.json());
+}
+
+export interface QAStats {
+    totalQuestions: number;
+    unansweredCount: number;
+    resolvedRate: number;
+    answersThisWeek: number;
+}
+
+export async function getQAStats(): Promise<QAStats> {
+    return fetch(`${API_URL}/community/questions/stats`, {
         headers: { 'Content-Type': 'application/json' },
     }).then(res => res.json());
 }

@@ -7,6 +7,8 @@ import { Comment as MockComment, CommunityUser } from '@/lib/community-mock-data
 import { Avatar } from '../shared/avatar';
 import { CommentCard } from './comment-card';
 import * as communityApi from '@/lib/community-api';
+import { useProfile } from '@/lib/profile-context';
+import { useAuth } from '@/lib/auth-context';
 
 interface CommentSectionProps {
   postId: string;
@@ -16,37 +18,8 @@ interface CommentSectionProps {
   onReplyComment?: (commentId: string, content: string) => void;
   onLikeComment?: (commentId: string) => void;
   onCommentCountChange?: (count: number) => void;
-}
-
-// Get current user from profile context or localStorage
-function getCurrentUser(): CommunityUser | null {
-  if (typeof window === 'undefined') return null;
-
-  const profileData = localStorage.getItem('profileData');
-  if (profileData) {
-    try {
-      const profile = JSON.parse(profileData);
-      return {
-        id: profile.id || 'current-user',
-        name: `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || profile.username || 'User',
-        avatar: profile.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=current-user',
-        role: profile.role || 'user',
-        followers: 0,
-        following: 0,
-      };
-    } catch {
-      // Ignore parse errors
-    }
-  }
-
-  return {
-    id: 'guest',
-    name: 'Người dùng',
-    avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest',
-    role: 'user',
-    followers: 0,
-    following: 0,
-  };
+  onUserClick?: (userId: string) => void;
+  onStatsChange?: () => void;
 }
 
 // Transform API comment to mock format
@@ -78,6 +51,8 @@ export function CommentSection({
   onReplyComment,
   onLikeComment,
   onCommentCountChange,
+  onUserClick,
+  onStatsChange,
 }: CommentSectionProps) {
   const [newComment, setNewComment] = useState('');
   const [comments, setComments] = useState<MockComment[]>(initialComments || []);
@@ -85,9 +60,23 @@ export function CommentSection({
   const [isLoading, setIsLoading] = useState(!initialComments);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Track parent IDs of comments that should be auto-expanded (after posting a reply)
+  const [expandedParentIds, setExpandedParentIds] = useState<Set<string>>(new Set());
 
-  const currentUser = getCurrentUser();
+  // Get current user from ProfileContext (real-time sync)
+  const { userProfile } = useProfile();
+  const { user } = useAuth();
   const isAuthenticated = communityApi.isAuthenticated();
+
+  // Derive currentUser from ProfileContext for real-time avatar sync
+  const currentUser: CommunityUser | null = userProfile ? {
+    id: userProfile.id || user?.id || 'current-user',
+    name: userProfile.name || user?.username || 'User',
+    avatar: userProfile.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=current-user',
+    role: (user?.role || 'user') as 'user' | 'employer',
+    followers: 0,
+    following: 0,
+  } : null;
 
   // Use ref to avoid infinite re-renders from inline callback prop
   const onCommentCountChangeRef = useRef(onCommentCountChange);
@@ -163,6 +152,9 @@ export function CommentSection({
       // Call callback
       onAddComment?.(newComment);
 
+      // Trigger leaderboard refresh
+      onStatsChange?.();
+
       // Reset
       setNewComment('');
     } catch (err) {
@@ -183,11 +175,17 @@ export function CommentSection({
       // Create the reply via API
       await communityApi.addComment(postId, content, parentId);
 
+      // Track this parent as one that should be expanded (to show the new reply)
+      setExpandedParentIds(prev => new Set([...prev, parentId]));
+
       // Re-fetch all comments to ensure state is synced with backend
       // This ensures nested replies (reply-to-reply) are properly positioned in the tree
       await loadComments();
 
       onReplyComment?.(parentId, content);
+
+      // Trigger leaderboard refresh
+      onStatsChange?.();
     } catch (err) {
       console.error('Error adding reply:', err);
       setError('Không thể thêm phản hồi. Vui lòng thử lại.');
@@ -225,6 +223,9 @@ export function CommentSection({
 
       setComments(prev => updateLike(prev));
       onLikeComment?.(commentId);
+
+      // Trigger leaderboard refresh
+      onStatsChange?.();
     } catch (err) {
       console.error('Error toggling like:', err);
     }
@@ -310,6 +311,8 @@ export function CommentSection({
                   onAddReply={handleReplyComment}
                   totalComments={totalComments}
                   onTotalCommentsChange={setTotalComments}
+                  onUserClick={onUserClick}
+                  expandedParentIds={expandedParentIds}
                 />
               </motion.div>
             ))}

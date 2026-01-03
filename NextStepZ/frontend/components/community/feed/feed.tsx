@@ -71,6 +71,7 @@ interface FeedProps {
   onCreatePostClick?: () => void;
   onPostInteraction?: (postId: string, type: 'like' | 'comment' | 'save' | 'share') => void;
   onUserClick?: (userId: string) => void;
+  onStatsChange?: () => void;
   filter?: FilterType;
   selectedHashtags?: string[];
   selectedTopics?: string[];
@@ -82,6 +83,7 @@ export function Feed({
   onCreatePostClick,
   onPostInteraction,
   onUserClick,
+  onStatsChange,
   filter = 'all',
   selectedHashtags = [],
   selectedTopics = [],
@@ -223,6 +225,7 @@ export function Feed({
         return post;
       }));
       onPostInteraction?.(postId, 'like');
+      onStatsChange?.();
     } catch (err) {
       console.error('Error toggling like:', err);
     }
@@ -308,6 +311,7 @@ export function Feed({
             onShare={() => onPostInteraction?.(post.id, 'share')}
             onUserClick={(userId) => onUserClick?.(userId)}
             onReport={() => setReportingPost(post)}
+            onStatsChange={onStatsChange}
           />
         ))}
       </div>

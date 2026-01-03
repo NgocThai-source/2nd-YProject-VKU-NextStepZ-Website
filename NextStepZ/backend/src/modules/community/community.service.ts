@@ -229,14 +229,23 @@ export class CommunityService {
             await this.prisma.like.delete({
                 where: { id: existingLike.id },
             });
-            return { isLiked: false, message: 'Đã bỏ thích' };
         } else {
             // Like
             await this.prisma.like.create({
                 data: { postId, userId },
             });
-            return { isLiked: true, message: 'Đã thích' };
         }
+
+        // Get updated like count
+        const likesCount = await this.prisma.like.count({
+            where: { postId },
+        });
+
+        return {
+            isLiked: !existingLike,
+            likesCount,
+            message: existingLike ? 'Đã bỏ thích' : 'Đã thích',
+        };
     }
 
     /**
@@ -285,12 +294,6 @@ export class CommunityService {
             },
         });
 
-        // Debug logging - track all comments and their parent relationships
-        console.log(`[getComments] Post ${postId}: Found ${allComments.length} total comments`);
-        allComments.forEach(c => {
-            console.log(`  - Comment ${c.id.substring(0, 8)}... parentId=${c.parentId ? c.parentId.substring(0, 8) + '...' : 'null'} content="${c.content.substring(0, 30)}..."`);
-        });
-
         // Build a map of comments by ID
         const commentMap = new Map<string, any>();
         allComments.forEach(comment => {
@@ -324,9 +327,7 @@ export class CommunityService {
                 if (parent) {
                     parent.replies.push(transformedComment);
                 } else {
-                    // Parent not found - this is an orphaned reply
-                    // Log for debugging and add to orphaned list
-                    console.warn(`Orphaned reply found: comment ${comment.id} has parentId ${comment.parentId} but parent not found`);
+                    // Parent not found - orphaned reply, add to orphaned list
                     orphanedReplies.push(transformedComment);
                 }
             } else {
@@ -338,7 +339,6 @@ export class CommunityService {
         // Add orphaned replies to root level so they're not lost
         // This handles edge cases where parent comments were deleted
         if (orphanedReplies.length > 0) {
-            console.warn(`Found ${orphanedReplies.length} orphaned replies, adding to root level`);
             rootComments.push(...orphanedReplies);
         }
 
@@ -505,7 +505,7 @@ export class CommunityService {
     /**
      * Get shared post (public endpoint)
      */
-    async getSharedPost(postId: string) {
+    async getSharedPost(postId: string, userId?: string) {
         const post = await this.prisma.post.findUnique({
             where: { id: postId },
             include: {
@@ -526,6 +526,10 @@ export class CommunityService {
                         comments: true,
                     },
                 },
+                likes: userId ? {
+                    where: { userId },
+                    select: { id: true },
+                } : false,
             },
         });
 
@@ -537,6 +541,8 @@ export class CommunityService {
             ...post,
             likesCount: post._count.likes,
             commentsCount: post._count.comments,
+            isLiked: userId ? post.likes && post.likes.length > 0 : false,
+            likes: undefined,
             _count: undefined,
         };
     }
@@ -645,5 +651,451 @@ export class CommunityService {
             followers: user.followers,
             streak: Math.floor(Math.random() * 30) + 1, // Placeholder for activity streak
         }));
+    }
+
+    /**
+     * Get user profile data for modal display
+     * Includes computed stats: followers, posts, likes, comments, score
+     */
+    async getUserProfileForModal(userId: string, currentUserId?: string) {
+        const user = await this.prisma.user.findUnique({
+            where: { id: userId },
+            select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                role: true,
+                companyName: true,
+                _count: {
+                    select: {
+                        posts: true,
+                        comments: true,
+                        likes: true,
+                        followers: true,
+                        following: true,
+                    },
+                },
+            },
+        });
+
+        if (!user) {
+            throw new NotFoundException('Người dùng không tồn tại');
+        }
+
+        // Get the user's public profile share token
+        const publicProfile = await this.prisma.publicProfile.findUnique({
+            where: { userId },
+            select: { shareToken: true },
+        });
+
+        // Calculate total likes received on user's posts
+        const likesReceived = await this.prisma.like.count({
+            where: {
+                post: {
+                    userId: userId,
+                },
+            },
+        });
+
+        // Check if current user is following this user
+        let isFollowing = false;
+        if (currentUserId && currentUserId !== userId) {
+            const followRelation = await this.prisma.follow.findUnique({
+                where: {
+                    followerId_followingId: {
+                        followerId: currentUserId,
+                        followingId: userId,
+                    },
+                },
+            });
+            isFollowing = !!followRelation;
+        }
+
+        // Calculate score: Likes + Followers + (Posts + Comments) / 2
+        const followersCount = user._count.followers;
+        const postsCount = user._count.posts;
+        const commentsCount = user._count.comments;
+        const score = likesReceived + followersCount + Math.floor((postsCount + commentsCount) / 2);
+
+        return {
+            user: {
+                id: user.id,
+                name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.username,
+                avatar: user.avatar,
+                role: user.role,
+                title: user.role === 'employer' ? user.companyName : undefined,
+                verified: postsCount > 5 || followersCount > 10,
+            },
+            stats: {
+                followers: followersCount,
+                following: postsCount, // "Following" displays posts count as per user requirement
+                postsCount,
+                commentsCount,
+                likesReceived,
+                score,
+            },
+            shareToken: publicProfile?.shareToken || null,
+            isFollowing,
+            isSelf: currentUserId === userId,
+        };
+    }
+
+    // ==================== QUESTIONS ====================
+
+    /**
+     * Create a new question
+     */
+    async createQuestion(userId: string, dto: {
+        title: string;
+        content: string;
+        tags: string[];
+    }) {
+        const question = await this.prisma.post.create({
+            data: {
+                userId,
+                title: dto.title,
+                content: dto.content,
+                tags: dto.tags,
+                category: 'question',
+            },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                        role: true,
+                        companyName: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        likes: true,
+                        comments: true,
+                    },
+                },
+            },
+        });
+
+        return {
+            id: question.id,
+            title: question.title,
+            content: question.content,
+            tags: question.tags,
+            category: question.category,
+            viewCount: question.viewCount,
+            isAnswered: question.isAnswered,
+            likesCount: question._count.likes,
+            commentsCount: question._count.comments,
+            createdAt: question.createdAt.toISOString(),
+            user: question.user,
+        };
+    }
+
+    /**
+     * Get paginated questions
+     */
+    async getQuestions(userId?: string, page: number = 1, limit: number = 20) {
+        const skip = (page - 1) * limit;
+
+        const questions = await this.prisma.post.findMany({
+            where: { category: 'question' },
+            orderBy: { createdAt: 'desc' },
+            skip,
+            take: limit,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                        role: true,
+                        companyName: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        likes: true,
+                        comments: true,
+                    },
+                },
+                likes: userId ? {
+                    where: { userId },
+                    select: { id: true },
+                } : false,
+            },
+        });
+
+        return questions.map(q => ({
+            id: q.id,
+            title: q.title,
+            content: q.content,
+            tags: q.tags,
+            viewCount: q.viewCount,
+            isAnswered: q.isAnswered,
+            likesCount: q._count.likes,
+            commentsCount: q._count.comments,
+            isLiked: userId ? q.likes && q.likes.length > 0 : false,
+            createdAt: q.createdAt.toISOString(),
+            user: q.user,
+        }));
+    }
+
+    /**
+     * Get single question by ID
+     */
+    async getQuestion(questionId: string, userId?: string) {
+        const question = await this.prisma.post.findFirst({
+            where: { id: questionId, category: 'question' },
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                        role: true,
+                        companyName: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        likes: true,
+                        comments: true,
+                    },
+                },
+                likes: userId ? {
+                    where: { userId },
+                    select: { id: true },
+                } : false,
+            },
+        });
+
+        if (!question) {
+            throw new NotFoundException('Câu hỏi không tồn tại');
+        }
+
+        return {
+            id: question.id,
+            title: question.title,
+            content: question.content,
+            tags: question.tags,
+            viewCount: question.viewCount,
+            isAnswered: question.isAnswered,
+            acceptedCommentId: question.acceptedCommentId,
+            likesCount: question._count.likes,
+            commentsCount: question._count.comments,
+            isLiked: userId ? question.likes && question.likes.length > 0 : false,
+            createdAt: question.createdAt.toISOString(),
+            user: question.user,
+        };
+    }
+
+    /**
+     * Toggle like on a question (same as post like)
+     */
+    async toggleQuestionLike(questionId: string, userId: string) {
+        // Verify it's a question
+        const question = await this.prisma.post.findFirst({
+            where: { id: questionId, category: 'question' },
+        });
+
+        if (!question) {
+            throw new NotFoundException('Câu hỏi không tồn tại');
+        }
+
+        // Reuse existing like logic
+        return this.toggleLike(questionId, userId);
+    }
+
+    /**
+     * Record unique question view per user
+     */
+    async recordQuestionView(questionId: string, userId: string) {
+        // Verify it's a question
+        const question = await this.prisma.post.findFirst({
+            where: { id: questionId, category: 'question' },
+        });
+
+        if (!question) {
+            throw new NotFoundException('Câu hỏi không tồn tại');
+        }
+
+        // Check if view already exists
+        const existingView = await this.prisma.questionView.findUnique({
+            where: {
+                postId_userId: {
+                    postId: questionId,
+                    userId,
+                },
+            },
+        });
+
+        if (!existingView) {
+            // Create view record and increment count
+            await this.prisma.$transaction([
+                this.prisma.questionView.create({
+                    data: {
+                        postId: questionId,
+                        userId,
+                    },
+                }),
+                this.prisma.post.update({
+                    where: { id: questionId },
+                    data: { viewCount: { increment: 1 } },
+                }),
+            ]);
+        }
+
+        // Get updated count
+        const updated = await this.prisma.post.findUnique({
+            where: { id: questionId },
+            select: { viewCount: true },
+        });
+
+        return { viewCount: updated?.viewCount || 0 };
+    }
+
+    /**
+     * Get featured questions (top 3 by likes)
+     */
+    async getFeaturedQuestions(limit: number = 3) {
+        const questions = await this.prisma.post.findMany({
+            where: { category: 'question' },
+            orderBy: [
+                { likes: { _count: 'desc' } },
+                { createdAt: 'desc' },
+            ],
+            take: limit,
+            include: {
+                user: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                        avatar: true,
+                    },
+                },
+                _count: {
+                    select: {
+                        likes: true,
+                        comments: true,
+                    },
+                },
+            },
+        });
+
+        return questions.map(q => ({
+            id: q.id,
+            title: q.title,
+            content: q.content,
+            tags: q.tags,
+            viewCount: q.viewCount,
+            likesCount: q._count.likes,
+            commentsCount: q._count.comments,
+            isAnswered: q.isAnswered,
+            createdAt: q.createdAt.toISOString(),
+            user: q.user,
+        }));
+    }
+
+    /**
+     * Get top experts (top 3 users by question post count)
+     */
+    async getTopExperts(limit: number = 3) {
+        const experts = await this.prisma.user.findMany({
+            where: {
+                posts: {
+                    some: { category: 'question' },
+                },
+            },
+            select: {
+                id: true,
+                username: true,
+                firstName: true,
+                lastName: true,
+                avatar: true,
+                role: true,
+                companyName: true,
+                _count: {
+                    select: {
+                        posts: {
+                            where: { category: 'question' },
+                        },
+                    },
+                },
+            },
+            orderBy: {
+                posts: { _count: 'desc' },
+            },
+            take: limit,
+        });
+
+        return experts.map(e => ({
+            id: e.id,
+            name: `${e.firstName || ''} ${e.lastName || ''}`.trim() || e.username,
+            avatar: e.avatar,
+            role: e.role,
+            title: e.role === 'employer' ? e.companyName : undefined,
+            questionCount: e._count.posts,
+        }));
+    }
+
+    /**
+     * Get Q&A statistics
+     */
+    async getQAStats() {
+        // Get total questions count
+        const totalQuestions = await this.prisma.post.count({
+            where: { category: 'question' },
+        });
+
+        // Get questions with at least 1 comment (answered/resolved questions)
+        const questionsWithComments = await this.prisma.post.count({
+            where: {
+                category: 'question',
+                comments: {
+                    some: {}, // Has at least one comment
+                },
+            },
+        });
+
+        // Calculate unanswered count (questions with no comments)
+        const unansweredCount = totalQuestions - questionsWithComments;
+
+        // Calculate resolved rate (questions with at least 1 comment / total)
+        const resolvedRate = totalQuestions > 0
+            ? Math.round((questionsWithComments / totalQuestions) * 100)
+            : 0;
+
+        // Get answers (comments on questions) this week
+        const oneWeekAgo = new Date();
+        oneWeekAgo.setDate(oneWeekAgo.getDate() - 7);
+
+        const answersThisWeek = await this.prisma.comment.count({
+            where: {
+                post: {
+                    category: 'question',
+                },
+                createdAt: {
+                    gte: oneWeekAgo,
+                },
+            },
+        });
+
+        return {
+            totalQuestions,
+            unansweredCount,
+            resolvedRate,
+            answersThisWeek,
+        };
     }
 }

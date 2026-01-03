@@ -171,12 +171,14 @@ export class CommunityController {
     }
 
     /**
-     * Get shared post (public endpoint)
+     * Get shared post (public endpoint with optional auth for like status)
      * GET /community/shared/:id
      */
     @Get('shared/:id')
-    async getSharedPost(@Param('id') id: string) {
-        return this.communityService.getSharedPost(id);
+    @UseGuards(OptionalJwtAuthGuard)
+    async getSharedPost(@Param('id') id: string, @Request() req: any) {
+        const userId = req.user?.userId;
+        return this.communityService.getSharedPost(id, userId);
     }
 
     // ==================== SUGGESTIONS & LEADERBOARD ====================
@@ -199,5 +201,103 @@ export class CommunityController {
     @Get('leaderboard')
     async getLeaderboard(@Query('limit') limit: string = '30') {
         return this.communityService.getLeaderboard(parseInt(limit));
+    }
+
+    // ==================== USER PROFILE MODAL ====================
+
+    /**
+     * Get user profile data for modal display
+     * GET /community/users/:userId/profile-modal
+     */
+    @Get('users/:userId/profile-modal')
+    @UseGuards(OptionalJwtAuthGuard)
+    async getUserProfileForModal(@Param('userId') userId: string, @Request() req: any) {
+        const currentUserId = req.user?.userId;
+        return this.communityService.getUserProfileForModal(userId, currentUserId);
+    }
+
+    // ==================== QUESTIONS ====================
+
+    /**
+     * Create a new question
+     * POST /community/questions
+     */
+    @Post('questions')
+    @UseGuards(JwtAuthGuard)
+    async createQuestion(@Request() req: any, @Body() body: { title: string; content: string; tags: string[] }) {
+        return this.communityService.createQuestion(req.user.userId, body);
+    }
+
+    /**
+     * Get paginated questions
+     * GET /community/questions
+     */
+    @Get('questions')
+    @UseGuards(OptionalJwtAuthGuard)
+    async getQuestions(
+        @Request() req: any,
+        @Query('page') page: string = '1',
+        @Query('limit') limit: string = '20',
+    ) {
+        const userId = req.user?.userId;
+        return this.communityService.getQuestions(userId, parseInt(page), parseInt(limit));
+    }
+
+    /**
+     * Get featured questions (top 3 by likes)
+     * GET /community/questions/featured
+     */
+    @Get('questions/featured')
+    async getFeaturedQuestions(@Query('limit') limit: string = '3') {
+        return this.communityService.getFeaturedQuestions(parseInt(limit));
+    }
+
+    /**
+     * Get top experts (top 3 by question count)
+     * GET /community/questions/top-experts
+     */
+    @Get('questions/top-experts')
+    async getTopExperts(@Query('limit') limit: string = '3') {
+        return this.communityService.getTopExperts(parseInt(limit));
+    }
+
+    /**
+     * Get Q&A statistics
+     * GET /community/questions/stats
+     */
+    @Get('questions/stats')
+    async getQAStats() {
+        return this.communityService.getQAStats();
+    }
+
+    /**
+     * Get single question by ID
+     * GET /community/questions/:id
+     */
+    @Get('questions/:id')
+    @UseGuards(OptionalJwtAuthGuard)
+    async getQuestion(@Param('id') id: string, @Request() req: any) {
+        const userId = req.user?.userId;
+        return this.communityService.getQuestion(id, userId);
+    }
+
+    /**
+     * Toggle like on a question
+     * POST /community/questions/:id/like
+     */
+    @Post('questions/:id/like')
+    @UseGuards(JwtAuthGuard)
+    async toggleQuestionLike(@Param('id') id: string, @Request() req: any) {
+        return this.communityService.toggleQuestionLike(id, req.user.userId);
+    }
+
+    /**
+     * Record question view
+     * POST /community/questions/:id/view
+     */
+    @Post('questions/:id/view')
+    @UseGuards(JwtAuthGuard)
+    async recordQuestionView(@Param('id') id: string, @Request() req: any) {
+        return this.communityService.recordQuestionView(id, req.user.userId);
     }
 }

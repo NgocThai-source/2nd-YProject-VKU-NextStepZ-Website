@@ -15,8 +15,10 @@ interface CommentCardProps {
   onLike?: (commentId: string) => void;
   onReply?: (commentId: string) => void;
   onAddReply?: (parentId: string, content: string) => Promise<void>;
+  onUserClick?: (userId: string) => void;
   totalComments?: number;
   onTotalCommentsChange?: (count: number) => void;
+  expandedParentIds?: Set<string>;
 }
 
 export function CommentCard({
@@ -24,14 +26,17 @@ export function CommentCard({
   onLike,
   onReply,
   onAddReply,
+  onUserClick,
   totalComments = 0,
   onTotalCommentsChange,
+  expandedParentIds,
 }: CommentCardProps) {
   const [isLiked, setIsLiked] = useState(comment.isLiked || false);
   const [likeCount, setLikeCount] = useState(comment.likes);
   const [isReplyingTo, setIsReplyingTo] = useState(false);
   const [replyContent, setReplyContent] = useState('');
-  const [showReplies, setShowReplies] = useState(false);
+  // Expand if this comment is in the expandedParentIds set (for newly replied comments)
+  const [showReplies, setShowReplies] = useState(expandedParentIds?.has(comment.id) || false);
   const [replies, setReplies] = useState<Comment[]>(comment.replyList || []);
   const [replyCount, setReplyCount] = useState(comment.replies);
 
@@ -71,6 +76,7 @@ export function CommentCard({
         alt={comment.author.name}
         size="sm"
         verified={comment.author.verified}
+        onClick={() => onUserClick?.(comment.author.id)}
       />
 
       <div className="flex-1 min-w-0 space-y-1">
@@ -79,7 +85,11 @@ export function CommentCard({
           whileHover={{ backgroundColor: 'rgba(255,255,255,0.08)' }}
           className="rounded-2xl bg-white/10 px-2 sm:px-4 py-1.5 sm:py-2 border border-cyan-400/20 hover:border-cyan-400/40 transition-all"
         >
-          <p className="font-semibold text-sm sm:text-sm text-slate-100" style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}>
+          <p
+            className="font-semibold text-sm sm:text-sm text-slate-100 cursor-pointer hover:text-cyan-300 transition-colors inline-block"
+            style={{ fontFamily: "'Exo 2 Medium', sans-serif" }}
+            onClick={() => onUserClick?.(comment.author.id)}
+          >
             {comment.author.name}
             {comment.author.verified && (
               <span className="ml-1 text-cyan-400 text-xs">✓</span>
@@ -207,6 +217,8 @@ export function CommentCard({
                   onLike={onLike}
                   onReply={() => { }}
                   onAddReply={onAddReply}
+                  onUserClick={onUserClick}
+                  expandedParentIds={expandedParentIds}
                 />
               ))}
             </motion.div>
